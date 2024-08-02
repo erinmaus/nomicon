@@ -1,0 +1,4 @@
+This is place 1.
+This is place 2.
+choice in place 1
+The end
