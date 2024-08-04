@@ -125,11 +125,48 @@ end
 function Story:continue()
     local result = self._executor:continue()
     local tags = {}
-    for i = 1, self._executor:getNumTags() do
+    for i = 1, self._executor:getTagCount() do
         table.insert(tags, self._executor:getTag(i))
     end
 
     return result, tags
+end
+
+--- Returns true if the story has choices, false otherwise.
+---@return boolean
+function Story:hasChoices()
+    return self:getChoiceCount() >= 1
+end
+
+--- Returns the number of choices currently available.
+--- 
+--- A choice must be made before the story continues.
+--- 
+--- @return integer choiceCount
+function Story:getChoiceCount()
+    return self._executor:getChoiceCount()
+end
+
+--- Returns the choice at the specific index.
+--- @param index number the index of the choice; if negative, will wrap around from end (so -1 will return the last choice, while 1 returns the first)
+--- @return Nomicon.Impl.Choice choice
+function Story:getChoice(index)
+    return self._executor:getChoice(index)
+end
+
+--- Makes a choice.
+--- 
+--- This will increment the turn count on success.
+--- 
+--- @param option Nomicon.Impl.Choice | string the choice or path to a knot
+--- @return boolean result true if the choice was successful (ie was valid), false otherwise
+function Story:choose(option)
+    local success = self._executor:choose(option)
+    if success then
+        self._executor:incrementTurnCount()
+    end
+
+    return success
 end
 
 return Story

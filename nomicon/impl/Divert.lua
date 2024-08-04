@@ -60,7 +60,7 @@ function Divert:getIsConditional()
     return self._isConditional
 end
 
-function Divert:getNumArgs()
+function Divert:getArgumentCount()
     if self._type == EXTERNAL_FUNCTION and self._object then
         return self._object[Constants.FIELD_DIVERT_EXTERNAL_FUNCTION_ARGS] or 0
     end
@@ -93,7 +93,7 @@ function Divert:call(executor)
     end
 
     if self._type == EXTERNAL_FUNCTION then
-        executor:divertToExternal(path, self:getNumArgs())
+        executor:divertToExternal(path, self:getArgumentCount())
     else
         local container, index = executor:getPointer(path)
         executor:divertToPointer(self._type, container, index)

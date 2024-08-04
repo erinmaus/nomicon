@@ -10,14 +10,44 @@ do
     for _, filename in ipairs(filenames) do
         local testName = filename:match("^(.*)%.json$")
 
-        if testName and testName:find("arith") then
+        if testName then
             local test = {
                  name = testName:gsub("_", " "),
                  book = json.decode(love.filesystem.read(string.format("simple/%s", filename))),
                  content = love.filesystem.read(string.format("simple/%s.txt", testName)) or "",
+                 choicePoints = {},
+                 currentChoicePoint = 0
             }
 
-            table.insert(TESTS, test)
+            do
+                local choicesFilename = string.format("simple/%s.choices.txt", testName)
+                if love.filesystem.getInfo(choicesFilename) then
+                    local lineNumber = 0
+                    local choices
+
+                    for line in love.filesystem.lines(choicesFilename) do
+                        lineNumber = lineNumber + 1
+                        if line:match("^(%d+)$") then
+                            if choices then
+                                table.insert(test.choicePoints, choices)
+                            end
+
+                            choices = { n = tonumber(line) }
+                        elseif choices then
+                            table.insert(choices, line)
+                        else
+                            error(string.format("malformed choices for test '%s' line %d", testName, lineNumber))
+                        end
+                    end
+
+                    if choices then
+                        table.insert(test.choicePoints, choices)
+                    end
+
+                end
+
+                table.insert(TESTS, test)
+            end
         end
     end
 end
@@ -28,6 +58,7 @@ local function runTest(test)
 
     local j = 1
     local currentText = ""
+    local currentChoicePoint = 1
     while story:canContinue() and (test.content and j < #test.content) do
         local text = story:continue()
         currentText = currentText .. text
@@ -41,6 +72,36 @@ local function runTest(test)
                 j = j + nextJ
             end
         end
+
+        if story:hasChoices() and currentChoicePoint > test.currentChoicePoint then
+            local choicePoint = test.choicePoints[currentChoicePoint]
+            currentChoicePoint = currentChoicePoint + 1
+
+            local choiceCount = 0
+            local firstChoice
+            for i = 1, story:getChoiceCount() do
+                if story:getChoice(i):getIsSelectable() and not story:getChoice(i):getChoicePoint():getIsInvisibleDefault() then
+                    choiceCount = choiceCount + 1
+                    firstChoice = firstChoice or story:getChoice(i)
+                end
+            end
+
+            lu.assertEquals(choiceCount, choicePoint.n, "choice count mismatch")
+            
+            local choicePointIndex = 0
+            for i = 1, story:getChoiceCount() do
+                local choice = story:getChoice(i)
+                if choice:getIsSelectable() and not choice:getChoicePoint():getIsInvisibleDefault() then
+                    choicePointIndex = choicePointIndex + 1
+                    if choicePoint[choicePointIndex] ~= "" then
+                        lu.assertEquals(choice:getText(), choicePoint[choicePointIndex], "choice text mismatch")
+                    end
+                end
+            end
+
+            local success = story:choose(firstChoice)
+            lu.assertEquals(success, true, "must succeed with first choice")
+        end
     end
 
     if test.content and j < #test.content then
@@ -51,7 +112,7 @@ end
 for _, test in ipairs(TESTS) do
     local success, message = xpcall(runTest, debug.traceback, test)
     if not success then
-        if message and message:find("LuaUnit") then
+        if message and message:find("LuaUnit") or true then
             coroutine.yield({
                 success = false,
                 name = test.name,

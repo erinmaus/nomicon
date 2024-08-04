@@ -53,7 +53,7 @@ function Container:_search(path)
             if index > 1 then
                 current = current:getParent()
             end
-        elseif pathComponent:match("%d+") then
+        elseif pathComponent:match("^(%d+)$") then
             previousIndex = tonumber(pathComponent) + 1
             current = current:getContent(previousIndex)
         else
@@ -145,7 +145,11 @@ function Container:_addNamedContent(name, container)
         error(string.format("container '%s' has named content '%s'", self:getPath():toString(), name))
     end
 
-    assert(container:getName() == name or container:getObject()[Constants.FIELD_CONTAINER_NAME] == name, "container name mis-match")
+    do
+        local object = container:getObject()
+        local objectName = object and type(object[#object]) == "table" and object[#object][Constants.FIELD_CONTAINER_NAME]
+        assert(container:getName() == name or objectName == name, "container name mismatch")
+    end
 
     self._namedContent[name] = container
 end
@@ -153,6 +157,10 @@ end
 function Container:_parseNamedContent(instruction)
     if type(instruction) ~= "table" or #instruction >= 1 then
         return
+    end
+
+    if instruction[Constants.FIELD_CONTAINER_NAME] and self:getParent() then
+        self:getParent():_addNamedContent(instruction[Constants.FIELD_CONTAINER_NAME], self)
     end
 
     -- 'null' is lost, so we have to handle end of container differently
@@ -204,6 +212,7 @@ function Container:call(executor)
     end
 
     currentThread:getCallStack():jump(self, 0)
+    executor:visit(self)
 end
 
 function Container.isContainer(instruction)

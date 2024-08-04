@@ -90,13 +90,13 @@ local Constants = {
     FIELD_PUSH_VARIABLE_NAME               = "VAR?",
     FIELD_READ_COUNT                       = "CNT?",
     FIELD_CHOICE_POINT_PATH                = "*",
-    FIELD_FLAG                             = "flg",
+    FIELD_CHOICE_FLAGS                     = "flg",
     FIELD_CONTAINER_FLAGS                  = "#f",
     FIELD_CONTAINER_NAME                   = "#n",
 
     FLAG_CHOICE_POINT_HAS_CONDITION        = 1,
     FLAG_CHOICE_POINT_HAS_START_CONTENT    = 2,
-    FLAG_CHOICE_POINT_HAS_CHOICE_CONTENT   = 4,
+    FLAG_CHOICE_POINT_HAS_END_CONTENT      = 4,
     FLAG_CHOICE_POINT_IS_INVISIBLE_DEFAULT = 8,
     FLAG_CHOICE_POINT_ONLY_ONCE            = 16,
 

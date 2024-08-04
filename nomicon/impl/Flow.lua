@@ -33,7 +33,7 @@ function Flow:getName()
     return self._name
 end
 
-function Flow:getNumTags()
+function Flow:getTagCount()
     return #self._tags
 end
 
@@ -169,14 +169,14 @@ end
 function Flow:getThread(index)
     index = index or -1
     if index < 0 then
-        index = self._top + index + 2
+        index = self._top + index + 1
     end
 
     if index < 1 or index > self._top then
         error("thread index out of bounds")
     end
 
-    return self._top[index]
+    return self._threads[index]
 end
 
 function Flow:getCurrentThread()
@@ -195,7 +195,7 @@ function Flow:addChoice(choicePoint)
 
     local choice = self._choices[index]
     if not choice then
-        choice = Choice(self)
+        choice = Choice(self._executor)
         self._choices[index] = choice
     end
     choice:create(choicePoint)
@@ -222,14 +222,13 @@ function Flow:clearChoices()
     self._choiceCount = 0
 end
 
-function Flow:getNumChoices()
+function Flow:getChoiceCount()
     return self._choiceCount
 end
 
 function Flow:done()
     if self:canPop() then
         self:pop()
-        self:clearChoices()
     else
         self:stop()
     end

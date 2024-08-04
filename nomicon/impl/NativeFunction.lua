@@ -202,7 +202,7 @@ local PERFORM = {
             end
         else
             local a = leftValue:cast(coercedType)
-            local b = rightValue:castf(coercedType)
+            local b = rightValue:cast(coercedType)
 
             if a ~= nil and b ~= nil then
                 return a > b

@@ -99,7 +99,7 @@ function love.keypressed(key)
         end
     end
 
-    if isDone then
+    if key == "escape" and isDone then
         love.event.quit(returnCode)
     end
 end
@@ -159,7 +159,7 @@ function love.draw()
     end
 
     if not isRunning then
-        push(WHITE, "Press any key to quit.")
+        push(WHITE, "Press ESC to quit.")
     end
 
     local font = love.graphics.getFont()

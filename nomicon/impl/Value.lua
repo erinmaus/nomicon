@@ -42,10 +42,6 @@ CASTS[STRING][BOOLEAN] = function(value)
     return #value > 0
 end
 
-CASTS[STRING][DIVERT] = function(value)
-    return value
-end
-
 -- Cast from numbers
 CASTS[NUMBER][STRING] = function(value)
     local isFloat = math.abs(value) - math.floor(math.abs(value)) > 0

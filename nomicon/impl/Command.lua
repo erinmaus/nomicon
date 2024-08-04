@@ -62,9 +62,11 @@ local COMMANDS = {
 
         executor:getCallStack():leave(Constants.DIVERT_TO_TUNNEL)
         if value:is(DIVERT) or value:cast(DIVERT) then
-
-            local divert = value:cast(DIVERT)
-            divert:call(executor)
+            local path = value:cast(DIVERT)
+            local divertContainer, divertIndex = executor:getPointer(path)
+            if divertContainer and divertIndex then
+                executor:divertToPointer(Constants.DIVERT_TO_TUNNEL, divertContainer, divertIndex)
+            end
         elseif not value:is(VOID) then
             error(string.format("expected DIVERT-compatible type or VOID, got '%s'", value:getType()))
         end
@@ -92,7 +94,7 @@ local COMMANDS = {
     end,
 
     [PUSH_CHOICE_COUNT] = function(executor)
-        executor:getEvaluationStack():push(executor:getNumChoices():getCount())
+        executor:getEvaluationStack():push(executor:getChoiceCount():getCount())
     end,
 
     [PUSH_TURN_COUNT] = function(executor)

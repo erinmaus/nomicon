@@ -30,7 +30,7 @@ function Path:_buildAbsolutePath()
     self._absolutePath = table.concat(result, ".", 2, #result)
 end
 
-function Path:getNumComponents()
+function Path:getComponentCount()
     return #self._path
 end
 
@@ -63,14 +63,15 @@ function Path:contains(otherContainer)
 end
 
 function Path:_getCommonParentIndex(otherPath)
-    local currentIndex = 1
-    local isSame, isOutOfBounds
+    local currentIndex = 0
+    local isSame, isInBounds
     repeat
+        currentIndex = currentIndex + 1
         isSame = otherPath:getContainer(currentIndex) == self:getContainer(currentIndex)
-        isOutOfBounds = currentIndex <= otherPath:getNumComponents() and currentIndex <= self:getNumComponents()
-    until isSame or isOutOfBounds
+        isInBounds = currentIndex <= otherPath:getComponentCount() and currentIndex <= self:getComponentCount()
+    until not (isSame and isInBounds)
 
-    return currentIndex
+    return currentIndex - 1
 end
 
 function Path:getCommonParent(otherPath)
@@ -81,11 +82,11 @@ function Path:_buildRelativeString(otherPath)
     local result = { "." }
 
     local commonParentIndex = self:_getCommonParentIndex(otherPath)
-    for _ = commonParentIndex, self:getNumComponents() do
+    for _ = commonParentIndex, self:getComponentCount() do
         table.insert(result, "^")
     end
 
-    for i = commonParentIndex + 1, self:getNumComponents() do
+    for i = commonParentIndex + 1, self:getComponentCount() do
         table.insert(result, tostring(otherPath:getComponent(i)))
     end
 

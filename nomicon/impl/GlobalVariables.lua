@@ -33,7 +33,14 @@ local function __newindex(self, key, value)
         end
     end
 
-    metatable._variables[key] = value
+    local variable = self._variables[key]
+    if not variable then
+        variable = Value(nil, value)
+    else
+        value:copy(variable)
+    end
+
+    metatable._variables[key] = variable
 end
 
 function GlobalVariables:new(parent)

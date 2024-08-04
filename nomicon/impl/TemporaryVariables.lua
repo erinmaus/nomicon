@@ -1,6 +1,7 @@
 local PATH = (...):gsub("[^%.]+$", "")
 local Class = require(PATH .. "Class")
 local Utility = require(PATH .. "Utility")
+local Value = require(PATH .. "Value")
 
 local TemporaryVariables = Class()
 
@@ -11,7 +12,14 @@ end
 
 local function __newindex(self, key, value)
     local metatable = getmetatable(self)
-    metatable._variables[key] = value
+    local variable = metatable._variables[key]
+    if not variable then
+        variable = Value(nil, value)
+    else
+        value:copy(variable)
+    end
+
+    metatable._variables[key] = variable
 end
 
 function TemporaryVariables:new(parent)
