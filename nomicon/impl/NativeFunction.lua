@@ -577,18 +577,18 @@ function NativeFunction:_getCoercedType(stack, numParameters)
             error("got 'void' value! function without return value?")
         end
 
-        local priority = TYPE_PRIORITY[value]
+        local priority = TYPE_PRIORITY[valueType]
         if priority == nil then
             error(string.format("no priority for co-ercing type '%s'!", valueType))
         elseif priority > currentTypePriority then
             currentType = valueType
             currentTypePriority = priority
-        elseif currentType and currentTypePriority == priority then
+        elseif currentType and currentType ~= valueType and currentTypePriority == priority then
             error(string.format("priority for current value type '%s' and other value type '%s' is same (%d)!", currentType, valueType, currentTypePriority))
         end
     end
 
-    return currentTypePriority
+    return currentType
 end
 
 function NativeFunction:call(executor)
@@ -606,7 +606,12 @@ function NativeFunction:call(executor)
         error(string.format("unhandled native function '%s', cannot perform", self._type))
     end
 
-    return func(coercedType, executor:getEvaluationStack():pop(numParameters))
+    local result = func(coercedType, executor:getEvaluationStack():pop(numParameters))
+    if executor:getIsInExpressionEvaluation() then
+        executor:getEvaluationStack():push(result)
+    else
+        executor:getOutputStack():push(result)
+    end
 end
 
 function NativeFunction.isNativeFunction(instruction)

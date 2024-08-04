@@ -441,19 +441,17 @@ function Executor:_advancePointer()
     index = index + 1
     while index > container:getCount() do
         local parent = container:getParent()
-        if not parent then
-            container, index = nil, nil
-            break
-        end
+        local childIndexInParent = container:getPath():getComponent()
 
-        if type(container:getName()) ~= "number" then
+        if type(childIndexInParent) ~= "number" then
             container, index = nil, nil
-            break
+            return
         end
 
         container = parent
-        index = container:getName() + 1
+        index = childIndexInParent + 1
     end
+
 
     thread:getCallStack():jump(container, index)
 end
@@ -479,6 +477,22 @@ function Executor:canContinue()
     return self._currentFlow:getCurrentThread():getCurrentPointer() ~= nil
 end
 
+function Executor:_shouldStop()
+    local stack = self._currentFlow:getOutputStack()
+
+    if stack:getCount() == 0 then
+        return false
+    end
+
+    if stack:isWhitespace() then
+        return false
+    end
+
+    local top = stack:peek()
+    return top and top:is(Constants.TYPE_STRING) and top:getValue():find("\n$")
+end
+
+
 function Executor:continue()
     if not self:canContinue() or self:getNumChoices() >= 1 then
         error("cannot continue executor; not in valid state")
@@ -496,8 +510,7 @@ function Executor:continue()
             end
         end
 
-        local top = self._currentFlow:getOutputStack():peek()
-        if top and top:is(Constants.TYPE_STRING) and top:getValue():find("\n$") then
+        if self:_shouldStop() then
             break
         end
     end

@@ -16,7 +16,7 @@ function Container:new(parent, name, object)
     self._parent = parent
     self._name = name
     self._object = object
-    self._flags = object[Constants.FIELD_CONTAINER_FLAGS] or 0
+    self._flags = object and object[#object] and object[#object][Constants.FIELD_CONTAINER_FLAGS] or 0
     self._path = Path(self)
 
     self._content = {}
@@ -50,16 +50,14 @@ function Container:_search(path)
         previousIndex = nil
 
         if pathComponent == Constants.PATH_PARENT then
-            current = self:getParent()
-        elseif pathComponent:match("%d+") then
-            local index = tonumber(pathComponent) + 1
-            previousIndex = index
-
-            current = self:getContent(index)
-        else
-            if index > 1 or pathComponent ~= "root" then
-                current = self:getContent(pathComponent)
+            if index > 1 then
+                current = current:getParent()
             end
+        elseif pathComponent:match("%d+") then
+            previousIndex = tonumber(pathComponent) + 1
+            current = current:getContent(previousIndex)
+        else
+            current = current:getContent(pathComponent)
         end
 
         index = index + 1

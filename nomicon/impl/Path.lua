@@ -27,7 +27,7 @@ function Path:_buildAbsolutePath()
         current = current:getParent()
     end
 
-    self._absolutePath = table.concat(result)
+    self._absolutePath = table.concat(result, ".", 2, #result)
 end
 
 function Path:getNumComponents()

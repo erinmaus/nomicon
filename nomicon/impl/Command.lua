@@ -59,12 +59,13 @@ local COMMANDS = {
 
     [RETURN_TUNNEL] = function(executor)
         local value = executor:getEvaluationStack():pop()
+
+        executor:getCallStack():leave(Constants.DIVERT_TO_TUNNEL)
         if value:is(DIVERT) or value:cast(DIVERT) then
+
             local divert = value:cast(DIVERT)
-            executor:getCallStack():pop(divert)
-        elseif value:is(VOID) then
-            executor:getCallStack():pop()
-        else
+            divert:call(executor)
+        elseif not value:is(VOID) then
             error(string.format("expected DIVERT-compatible type or VOID, got '%s'", value:getType()))
         end
     end,

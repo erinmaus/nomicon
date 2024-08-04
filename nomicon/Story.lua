@@ -1,6 +1,7 @@
 local PATH = (...):gsub("[^%.]+$", "")
 local Class = require(PATH .. "impl.Class")
 local Container = require(PATH .. "impl.Container")
+local Constants = require(PATH .. "impl.Constants")
 local Executor = require(PATH .. "impl.Executor")
 local GlobalVariables = require(PATH .. "impl.GlobalVariables")
 local ListDefinitions = require(PATH .. "impl.ListDefinitions")
@@ -31,7 +32,9 @@ function Story:new(book, defaultGlobalVariables)
     local container = Container(nil, "root", book.root or {})
 
     self._executor = Executor(container, listDefinitions, self._globalVariables)
-    self._executor:choose("root")
+
+    local callStack = self._executor:getCurrentFlow():getCurrentThread():getCallStack()
+    callStack:enter(Constants.DIVERT_START, self._executor:getRootContainer(), 1)
 end
 
 --- Configures the RNG for the story.

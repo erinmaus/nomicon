@@ -10,7 +10,7 @@ do
     for _, filename in ipairs(filenames) do
         local testName = filename:match("^(.*)%.json$")
 
-        if testName and testName:find("function") then
+        if testName and testName:find("arith") then
             local test = {
                  name = testName:gsub("_", " "),
                  book = json.decode(love.filesystem.read(string.format("simple/%s", filename))),
@@ -38,7 +38,7 @@ local function runTest(test)
             if not (nextI and nextJ) or nextI ~= 1 then
                 lu.assertEquals(text, fragment:match("(.*)\n"), "output text must match expected text")
             else
-                j = nextJ + 1
+                j = j + nextJ
             end
         end
     end

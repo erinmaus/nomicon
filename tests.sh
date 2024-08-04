@@ -1,6 +1,8 @@
 #!/usr/bin/env sh
 
-make
+set -e
+
+make all
 
 if [ -z "${CI+yes}" ]; then
     "${LOVE_BINARY:-love}" --fused tests ci=yes
