@@ -33,7 +33,14 @@ local function __newindex(self, key, value)
         end
     end
 
-    metatable._variables[key] = value
+    local variable = self._variables[key]
+    if not variable then
+        variable = Value(nil, value)
+    else
+        value:copy(variable)
+    end
+
+    metatable._variables[key] = variable
 end
 
 function GlobalVariables:new(parent)
@@ -110,7 +117,7 @@ function GlobalVariables:get(key)
 end
 
 function GlobalVariables:set(key, value, fireObservers)
-    if not Class.isCompatibleType(Class.getClass(value), Value) then
+    if not Class.isDerived(Class.getType(value), Value) then
         value = Value(nil, value)
     end
 

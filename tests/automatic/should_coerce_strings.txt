@@ -1,2 +1,2 @@
 same
-ddifferent
+different

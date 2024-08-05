@@ -1,3 +1,5 @@
+package.path = string.format("%s/?.lua;%s/?/init.lua;%s", love.filesystem.getSourceBaseDirectory(), love.filesystem.getSourceBaseDirectory(), package.path)
+
 local IS_DEBUG = os.getenv("LOCAL_LUA_DEBUGGER_VSCODE") == "1"
 if IS_DEBUG then
 	require("lldebugger").start()

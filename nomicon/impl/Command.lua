@@ -59,12 +59,15 @@ local COMMANDS = {
 
     [RETURN_TUNNEL] = function(executor)
         local value = executor:getEvaluationStack():pop()
+
+        executor:getCallStack():leave(Constants.DIVERT_TO_TUNNEL)
         if value:is(DIVERT) or value:cast(DIVERT) then
-            local divert = value:cast(DIVERT)
-            executor:getCallStack():pop(divert)
-        elseif value:is(VOID) then
-            executor:getCallStack():pop()
-        else
+            local path = value:cast(DIVERT)
+            local divertContainer, divertIndex = executor:getPointer(path)
+            if divertContainer and divertIndex then
+                executor:divertToPointer(Constants.DIVERT_TO_TUNNEL, divertContainer, divertIndex)
+            end
+        elseif not value:is(VOID) then
             error(string.format("expected DIVERT-compatible type or VOID, got '%s'", value:getType()))
         end
     end,
@@ -91,7 +94,7 @@ local COMMANDS = {
     end,
 
     [PUSH_CHOICE_COUNT] = function(executor)
-        executor:getEvaluationStack():push(executor:getNumChoices():getCount())
+        executor:getEvaluationStack():push(executor:getChoiceCount():getCount())
     end,
 
     [PUSH_TURN_COUNT] = function(executor)
@@ -158,8 +161,9 @@ local COMMANDS = {
     end,
 
     [PUSH_VISITS] = function(executor)
-        local container = executor:getCurrentContainer()
-        executor:getEvaluationStack():push(executor:getVisitCountForContainer(container) - 1)
+        local container = executor:getCurrentFlow():getCurrentThread():getCurrentPointer()
+        local visitCount = executor:getVisitCountForContainer(container) - 1
+        executor:getEvaluationStack():push(visitCount)
     end,
 
     [PUSH_SHUFFLE_INDEX] = function(executor)

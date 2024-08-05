@@ -42,12 +42,13 @@ CASTS[STRING][BOOLEAN] = function(value)
     return #value > 0
 end
 
-CASTS[STRING][DIVERT] = function(value)
-    return value
-end
-
 -- Cast from numbers
 CASTS[NUMBER][STRING] = function(value)
+    local isFloat = math.abs(value) - math.floor(math.abs(value)) > 0
+    if isFloat then
+        return string.format("%1.7f", value)
+    end
+
     return tostring(value)
 end
 
@@ -144,6 +145,8 @@ function Value:_fromValue(value, object)
             end
         elseif valueType == "number" then
             self:_init(NUMBER, value, object)
+        elseif valueType == "nil" then
+            self:_init(VOID, nil, object)
         elseif object and valueType == "table" then
             if object and object[Constants.FIELD_DIVERT_TARGET] then
                 self:_init(DIVERT, object[Constants.FIELD_DIVERT_TARGET], object)
@@ -203,6 +206,10 @@ function Value:copy(other)
     end
 
     return other
+end
+
+function Value:copyFrom(value)
+    self:_fromValue(value)
 end
 
 function Value.isValue(instruction)

@@ -10,6 +10,7 @@ local Constants = {
     TYPE_TAG     = "tag",
 
     VALUE_GLUE = "<>",
+    VALUE_FIELD_LIST = "list",
 
     COMMAND_BEGIN_LOGICAL_EVALUATION       = "ev",
     COMMAND_END_LOGICAL_EVALUATION         = "/ev",
@@ -62,7 +63,7 @@ local Constants = {
     NATIVE_FUNCTION_FLOAT                  = "FLOAT",
     NATIVE_FUNCTION_INCLUDE                = "?",
     NATIVE_FUNCTION_DOES_NOT_INCLUDE       = "!?",
-    NATIVE_FUNCTION_INTERSECT              = "^",
+    NATIVE_FUNCTION_INTERSECT              = "L^",
     NATIVE_FUNCTION_LIST_MIN               = "LIST_MIN",
     NATIVE_FUNCTION_LIST_MAX               = "LIST_MAX",
     NATIVE_FUNCTION_LIST_ALL               = "LIST_ALL",
@@ -79,6 +80,7 @@ local Constants = {
     ASSIGN_GLOBAL_VARIABLE                 = "VAR=",
     ASSIGN_TEMPORARY_VARIABLE              = "temp=",
     REFERENCE_VARIABLE                     = "VAR?",
+    READ_COUNT                             = "CNT?",
 
     FIELD_VARIABLE_REASSIGNMENT            = "re",
     FIELD_DIVERT_EXTERNAL_FUNCTION_ARGS    = "exArgs",
@@ -90,13 +92,13 @@ local Constants = {
     FIELD_PUSH_VARIABLE_NAME               = "VAR?",
     FIELD_READ_COUNT                       = "CNT?",
     FIELD_CHOICE_POINT_PATH                = "*",
-    FIELD_FLAG                             = "flg",
+    FIELD_CHOICE_FLAGS                     = "flg",
     FIELD_CONTAINER_FLAGS                  = "#f",
     FIELD_CONTAINER_NAME                   = "#n",
 
     FLAG_CHOICE_POINT_HAS_CONDITION        = 1,
     FLAG_CHOICE_POINT_HAS_START_CONTENT    = 2,
-    FLAG_CHOICE_POINT_HAS_CHOICE_CONTENT   = 4,
+    FLAG_CHOICE_POINT_HAS_END_CONTENT      = 4,
     FLAG_CHOICE_POINT_IS_INVISIBLE_DEFAULT = 8,
     FLAG_CHOICE_POINT_ONLY_ONCE            = 16,
 
@@ -107,6 +109,8 @@ local Constants = {
     PATH_RELATIVE                          = ".",
     PATH_PARENT                            = "^",
     PATH_SEPARATOR                         = ".",
+
+    GLOBAL_VARIABLES_NAMED_CONTENT         = "global decl",
 }
 
 local function __index(_self, key)

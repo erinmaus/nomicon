@@ -1,5 +1,6 @@
 local PATH = (...):gsub("[^%.]+$", "")
 local Class = require(PATH .. "Class")
+local Constants = require(PATH .. "Constants")
 local ListValue = require(PATH .. "ListValue")
 
 local List = Class()
@@ -19,10 +20,10 @@ function List:new(definitions, values, lists)
             local name = value:getListName()
 
             if not self._lists[name] then
-                local index = #self._lists[value] + 1
+                local index = #self._lists + 1
 
                 self._lists[name] = index
-                self._lists[index] = definitions:getList(name)
+                self._lists[index] = name
             end
         end
     else
@@ -207,6 +208,22 @@ function List:greaterThanOrEquals(other)
     otherMaxValue = otherMaxValue and otherMaxValue:getValue() or 0
 
     return self:getCount() == other:getCount() and selfMinValue >= otherMaxValue
+end
+
+function List:call(executor)
+    if executor:getIsInExpressionEvaluation() then
+        executor:getEvaluationStack():push(self)
+    else
+        executor:getOutputStack():push(self)
+    end
+end
+
+function List.isList(instruction)
+    if type(instruction) ~= "table" then
+        return false
+    end
+
+    return type(instruction[Constants.VALUE_FIELD_LIST]) == "table"
 end
 
 return List

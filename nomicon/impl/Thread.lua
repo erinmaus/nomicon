@@ -61,9 +61,9 @@ function Thread:getPointer(path)
     local parentContainer
     if path:sub(1, 1) == Constants.PATH_RELATIVE then
         parentContainer = self:getCurrentPointer()
+    else
+        parentContainer = self._executor:getRootContainer()
     end
-
-    parentContainer = parentContainer or self._executor:getRootContainer()
 
     if not parentContainer then
         return nil, nil

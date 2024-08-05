@@ -57,7 +57,7 @@ function CallStack:enter(divertType, container, containerIndex)
     local frame
 
     local index = self._top + 1
-    if index >= #self._frames then
+    if index > #self._frames then
         assert(index == #self._frames + 1, "call stack somehow got out of sync")
 
         frame = CallStackFrame(self)

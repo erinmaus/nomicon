@@ -61,9 +61,40 @@ function ValueStack:peek(index)
     return nil
 end
 
+function ValueStack:isWhitespace(startIndex, stopIndex)
+    if not (startIndex and stopIndex) then
+        startIndex = 1
+        stopIndex = self._top
+    else
+        startIndex = self:_toAbsoluteIndex(startIndex or 1)
+        stopIndex = self:_toAbsoluteIndex(stopIndex or startIndex or self._top)
+    end
+
+    if stopIndex < startIndex then
+        error("cannot convert to reversed string (stopIndex < startIndex)")
+    end
+
+    if not (startIndex >= 1 and startIndex <= self._top) then
+        error(string.format("startIndex (%d) out of bounds", startIndex))
+    end
+
+    if not (stopIndex >= 1 and stopIndex <= self._top) then
+        error(string.format("stopIndex (%d) out of bounds", stopIndex))
+    end
+
+    for i = startIndex, stopIndex do
+        local text = self._string[i]
+        if not text:match("^([%s\n\r]*)$") then
+            return false
+        end
+    end
+
+    return true
+end
+
 function ValueStack:toString(startIndex, stopIndex)
-    startIndex = self:_toAbsoluteIndex(startIndex)
-    stopIndex = self:_toAbsoluteIndex(stopIndex)
+    startIndex = self:_toAbsoluteIndex(startIndex or 1)
+    stopIndex = self:_toAbsoluteIndex(stopIndex or startIndex or self._top)
 
     if stopIndex < startIndex then
         error("cannot convert to reversed string (stopIndex < startIndex)")
@@ -148,11 +179,7 @@ function ValueStack:push(value)
         selfValue = Value(nil, value)
         self._stack[self._top] = selfValue
     else
-        if not Class.isDerived(Class.getType(value), Value) then
-            value = Value(nil, value)
-        end
-
-        value:copy(selfValue)
+        selfValue:copyFrom(value)
     end
 
     local value = selfValue:cast(Constants.TYPE_STRING) or ""
