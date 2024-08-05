@@ -10,6 +10,10 @@ function Pointer:new(object)
     self._object = object
 end
 
+function Pointer:getVariable()
+    return self._variable
+end
+
 function Pointer:getContextIndex()
     return self._contextIndex
 end

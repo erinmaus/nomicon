@@ -38,6 +38,7 @@ function Story:new(book, defaultGlobalVariables)
     self._executor:setRootContainer(container)
 
     self:_loadGlobals()
+    self:_loadGlobalTags()
 
     local callStack = self._executor:getCurrentFlow():getCurrentThread():getCallStack()
     callStack:enter(Constants.DIVERT_START, self._executor:getRootContainer(), 1)
@@ -48,9 +49,28 @@ function Story:_loadGlobals()
     if globals then
         self._executor:getCurrentFlow():getCurrentThread():getCallStack():enter(Constants.DIVERT_START, globals, 0)
         self._executor:continue()
+        self._executor:stop()
 
         assert(not self._executor:canContinue(), "global variable initialization container bad")
     end
+end
+
+function Story:_loadGlobalTags()
+    local TEMP_FLOW_NAME = {}
+    self._executor:newFlow(TEMP_FLOW_NAME)
+    self._executor:switchFlow(TEMP_FLOW_NAME)
+
+    local callStack = self._executor:getCurrentFlow():getCurrentThread():getCallStack()
+    callStack:enter(Constants.DIVERT_START, self._executor:getRootContainer(), 1)
+
+    self:continue()
+
+    self._globalTags = {}
+    for i = 1, self._executor:getTagCount() do
+        table.insert(self._globalTags, self._executor:getTag(i))
+    end
+
+    self._executor:deleteFlow(TEMP_FLOW_NAME)
 end
 
 --- Configures the RNG for the story.
@@ -168,6 +188,66 @@ end
 --- @return Nomicon.Impl.Choice choice
 function Story:getChoice(index)
     return self._executor:getChoice(index)
+end
+
+--- Returns the number of tags on the text.
+--- @return number tagCount
+function Story:getTagCount()
+    return self._executor:getTagCount()
+end
+
+--- Returns the tag at the specific index.
+---
+--- Negative values wrap backwards. So -1 will return the last tag in the list.
+--- 
+--- @return string tag text of the tag
+function Story:getTag(index)
+    if index < 0 then
+        index = index + self:getTagCount() + 1
+    end
+
+    return self._executor:getTag(index)
+end
+
+--- Returns the number of global tags on the story.
+--- @return number tagCount
+function Story:getGlobalTagCount()
+    return #self._globalTags
+end
+
+--- Returns the global tag at the specific index.
+---
+--- Negative values wrap backwards. So -1 will return the last global tag in the list.
+---
+--- @return string tag text of the global tag
+function Story:getGlobalTag(index)
+    if index < 0 then
+        index = index + #self._globalTags + 1
+    end
+
+    return self._globalTags[index]
+end
+
+--- Gets the tags for the knot or container at the provided path.
+--- @param path string the path to the knot or container
+function Story:getTags(path)
+    local TEMP_FLOW_NAME = {}
+    self._executor:newFlow(TEMP_FLOW_NAME)
+    self._executor:switchFlow(TEMP_FLOW_NAME)
+
+    local callStack = self._executor:getCurrentFlow():getCurrentThread():getCallStack()
+    callStack:enter(Constants.DIVERT_START, self._executor:getRootContainer(), 1)
+    self._executor:choose(path)
+
+    self:continue()
+
+    local tags = {}
+    for i = 1, self._executor:getTagCount() do
+        table.insert(tags, self._executor:getTag(i))
+    end
+
+    self._executor:deleteFlow(TEMP_FLOW_NAME)
+    return tags
 end
 
 --- Makes a choice.

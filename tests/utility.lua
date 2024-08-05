@@ -126,7 +126,13 @@ end
 
 local function runTests(tests)
     for _, test in ipairs(tests) do
-        local success, message = xpcall(runTest, debug.traceback, test)
+        local success, message
+        if test.func then
+            success, message = xpcall(test.func, debug.traceback)
+        else
+            success, message = xpcall(runTest, debug.traceback, test)
+        end
+
         if not success then
             message = message or ""
             if message:find("LuaUnit") or true then

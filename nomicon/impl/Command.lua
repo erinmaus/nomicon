@@ -94,7 +94,7 @@ local COMMANDS = {
     end,
 
     [PUSH_CHOICE_COUNT] = function(executor)
-        executor:getEvaluationStack():push(executor:getChoiceCount():getCount())
+        executor:getEvaluationStack():push(executor:getChoiceCount())
     end,
 
     [PUSH_TURN_COUNT] = function(executor)
@@ -221,7 +221,9 @@ local COMMANDS = {
     end,
 
     [DONE] = function(executor)
-        executor:done()
+        if executor:getChoiceCount() == 0 then
+            executor:done()
+        end
     end,
 
     [END] = function(executor)

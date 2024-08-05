@@ -65,6 +65,17 @@ function Variable:call(executor)
             if not value then
                 error(string.format("no temporary or global with name '%s' found", self._name))
             end
+
+            while value and value:is(Constants.TYPE_POINTER) do
+                local pointer = value:getValue()
+                if pointer:getContextIndex() <= 0 then
+                    value = executor:getGlobalVariable(pointer:getVariable())
+                end
+
+                if not value and pointer:getContextIndex() ~= 0 then
+                    value = executor:getTemporaryVariable(pointer:getVariable(), pointer:getContextIndex())
+                end
+            end
         elseif self:getIsReadyCount() then
             value = executor:getVisitCountForContainer(executor:getContainer(self._name))
         end
@@ -76,13 +87,47 @@ function Variable:call(executor)
         end
     else
         local value = executor:getEvaluationStack():pop()
-        
+
+        local name, contextIndex, currentValue
         if self:getIsGlobal() then
-            executor:setGlobalVariable(self._name, value)
+            currentValue = executor:getGlobalVariable(self._name)
+            contextIndex = 0
         elseif self:getIsTemporary() then
-            executor:setTemporaryVariable(self._name, value)
+            currentValue = executor:getTemporaryVariable(self._name)
+            contextIndex = -1
         else
             error(string.format("unhandled variable assignment type '%s'", self._type))
+        end
+
+        if currentValue and currentValue:is(Constants.TYPE_POINTER) then
+            local currentPointer = currentValue:getValue()
+            while currentPointer do
+                local otherValue
+                if currentPointer:getContextIndex() == 0 then
+                    otherValue = executor:getGlobalVariable(currentPointer:getVariable())
+                    contextIndex = otherValue and 0 or contextIndex
+                end
+
+                if not otherValue and currentPointer:getContextIndex() ~= 0 then
+                    otherValue = executor:getTemporaryVariable(currentPointer:getVariable(), currentPointer:getContextIndex())
+                    contextIndex = otherValue and currentPointer:getContextIndex() or contextIndex
+                end
+
+                if otherValue and otherValue:is(Constants.TYPE_POINTER) then
+                    currentPointer = otherValue:getValue()
+                else
+                    name = currentPointer:getVariable()
+                    break
+                end
+            end
+        else
+            name = self._name
+        end
+        
+        if contextIndex == 0 then
+            executor:setGlobalVariable(name, value)
+        else
+            executor:setTemporaryVariable(name, value, contextIndex)
         end
     end
 end

@@ -49,7 +49,7 @@ function Executor:new(globalVariables)
             return seed
         end
 
-        self._random = function(min, max)
+        self._randomFunc = function(min, max)
             return rng:random(min, max)
         end
     else
@@ -58,6 +58,46 @@ function Executor:new(globalVariables)
         self._getSeedFunc = function() return 0 end
         self._randomFunc = function(min, _max) return min end
     end
+end
+
+function Executor:newFlow(name)
+    if name == "default" then
+        return false
+    end
+
+    self._flows[name] = Flow(self, name)
+end
+
+function Executor:deleteFlow(name)
+    if not name then
+        return false
+    end
+
+    local flow = self._flows[name]
+    if not flow then
+        return false
+    end
+    
+    if self._currentFlow == flow then
+        self._currentFlow = self._defaultFlow
+    end
+    
+    self._flows[name] = nil
+    return true
+end
+    
+function Executor:switchFlow(name)
+    if not name or name == "default" then
+        self._currentFlow = self._defaultFlow
+        return
+    end
+
+    local flow = self._flows[name]
+    if not flow then
+        return false
+    end
+
+    self._currentFlow = flow
 end
 
 function Executor:clean()
@@ -150,8 +190,10 @@ function Executor:_getTemporaryVariables(contextIndex)
 
     if contextIndex then
         if contextIndex < 0 then
-            error("context index not yet determined")
-        elseif contextIndex == 0 then
+            contextIndex = callStack:getFrameCount() + contextIndex + 1
+        end
+
+        if contextIndex == 0 then
             error("context index is global")
         elseif contextIndex > callStack:getFrameCount() then
             error("context index it out of bounds")
@@ -237,11 +279,11 @@ function Executor:stopStringEvaluation()
 end
 
 function Executor:enterTag()
-    return self._currentFlow:getCurrentThread():enterTag()
+    return self._currentFlow:enterTag()
 end
 
 function Executor:leaveTag()
-    self._currentFlow:getCurrentThread():leaveTag()
+    self._currentFlow:leaveTag()
 end
 
 function Executor:getTurnCount()
@@ -479,7 +521,7 @@ function Executor:_advancePointer(thread)
 
     local container, index = thread:getCurrentPointer()
     if not (container and index) then
-        return
+        return false
     end
 
     index = index + 1
@@ -497,7 +539,17 @@ function Executor:_advancePointer(thread)
     end
 
     thread:getCallStack():jump(container, index)
-    return container and index
+    if not (container and index) then
+        local callStack = thread:getCallStack()
+        local frame = callStack:getFrameCount() > 1 and callStack:getFrame()
+        if frame and (frame:canLeave(Constants.DIVERT_TO_FUNCTION) or frame:canLeave(Constants.DIVERT_TO_TUNNEL)) then
+            thread:getCallStack():leave(frame:getType())
+        end
+
+        return false
+    end
+
+    return true
 end
 
 function Executor:_execute()

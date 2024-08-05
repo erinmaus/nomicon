@@ -1,6 +1,7 @@
 VAR x = 2 
 # author: Joe
 # title: My Great Story
+# volume: {x}
 This is the content
 
 == knot ==

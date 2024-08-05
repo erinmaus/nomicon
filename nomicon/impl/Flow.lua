@@ -14,11 +14,13 @@ function Flow:new(executor, name)
     self._executor = executor
     self._evaluationStack = ValueStack()
     self._outputStack = ValueStack()
+    self._tagStack = ValueStack()
 
     self._logicalEvaluationDepth = 0
-    self._evaluationStackStringIndices = {}
-    self._evaluationStackTagIndices = {}
+    self._outputStackStringIndices = {}
+    self._outputStackTagIndices = {}
 
+    self._choiceTags = {}
     self._choices = {}
     self._choiceCount = 0
 
@@ -79,7 +81,7 @@ function Flow:startStringEvaluation()
 
     self:leaveLogicalEvaluation()
 
-    table.insert(self._evaluationStackStringIndices, self._outputStack:getCount())
+    table.insert(self._outputStackStringIndices, self._outputStack:getCount())
 end
 
 function Flow:stopStringEvaluation()
@@ -87,39 +89,30 @@ function Flow:stopStringEvaluation()
         error("expected to NOT be in logical evaluation mode")
     end
 
-    if #self._evaluationStackStringIndices == 0 then
-        error("not currently in string evaluation mode")
-    end
+    local result = self._outputStack:toString(-1)
+    self._outputStack:pop(1)
 
-    local startIndex = table.remove(self._evaluationStackStringIndices, #self._evaluationStackStringIndices) + 1
-    local stopIndex = self._outputStack:getCount()
-
-    local result = self._outputStack:toString(startIndex, stopIndex)
-    self._evaluationStack:push(Value(nil, result))
-
-    local count = stopIndex - startIndex + 1
-    self._outputStack:pop(count)
+    self._evaluationStack:push(result)
 
     self:enterLogicalEvaluation()
 end
 
 function Flow:enterTag()
-    table.insert(self._evaluationStackTagIndices, self._evaluationStack:getCount())
+    table.insert(self._outputStackTagIndices, self._outputStack:getCount())
 end
 
 function Flow:leaveTag()
-    if #self._evaluationStackTagIndices == 0 then
-        error("not currently in tag mode")
+    if #self._outputStackTagIndices == 0 then
+        return
     end
 
-    local startIndex = table.remove(self._evaluationStackTagIndices, #self._evaluationStackTagIndices)
-    local stopIndex = self._evaluationStack:getCount()
+    local startIndex = table.remove(self._outputStackTagIndices) + 1
 
-    local result = self._evaluationStack:toString(startIndex, stopIndex)
-    self._evaluationStack:push(Value(Constants.TYPE_TAG, result))
+    local result = self._outputStack:toString(startIndex, -1)
+    self._tagStack:push(Value(Constants.TYPE_TAG, result))
 
-    local count = stopIndex - startIndex + 1
-    self._evaluationStack:pop(count)
+    local count = self._outputStack:getCount() - startIndex + 1
+    self._outputStack:pop(count)
 end
 
 function Flow:clean()
@@ -200,6 +193,16 @@ function Flow:addChoice(choicePoint)
     end
     choice:create(choicePoint)
 
+    Utility.clearTable(self._choiceTags)
+    for i = 1, self._tagStack:getCount() do
+        local tag = self._tagStack:pop():cast(Constants.TYPE_STRING)
+        if tag then
+            tag = Utility.cleanWhitespace(tag)
+            table.insert(self._choiceTags, 1, tag)
+        end
+    end
+    choice:addTags(self._choiceTags)
+
     self._choiceCount = index
 
     return choice
@@ -246,13 +249,16 @@ end
 function Flow:continue()
     Utility.clearTable(self._tags)
 
-    local index = self._outputStack:getCount()
-    while index >= 1 and self._outputStack:peek(index):cast(Constants.TYPE_STRING) == "\n" do
-        index = index - 1
+    for _ = 1, self._tagStack:getCount() do
+        local tag = self._tagStack:pop(1):cast(Constants.TYPE_STRING)
+        if tag then
+            tag = Utility.cleanWhitespace(tag)
+            table.insert(self._tags, 1, tag)
+        end
     end
 
-    while index >= 1 and self._outputStack:peek(index):is(Constants.TYPE_TAG) do
-        table.insert(self._tags, self._outputStack:peek(index):cast(Constants.TYPE_STRING))
+    local index = self._outputStack:getCount()
+    while index >= 1 and self._outputStack:peek(index):cast(Constants.TYPE_STRING) == "\n" do
         index = index - 1
     end
 
@@ -260,7 +266,7 @@ function Flow:continue()
         self._currentText = ""
     else
         local text = self._outputStack:toString(1, index)
-        self._currentText = text:gsub("^[\n\r%s]*", ""):gsub("[\n\r%s*]*[\n\r]?$", ""):gsub("([\t%s][\t%s]*)", " ") .. "\n"
+        self._currentText = Utility.cleanWhitespace(text) .. "\n"
     end
 end
 

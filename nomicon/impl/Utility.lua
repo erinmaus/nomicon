@@ -15,6 +15,11 @@ local function clearTable(t)
     return t
 end
 
+local function cleanWhitespace(text)
+    return text:gsub("^[\n\r%s]*", ""):gsub("[\n\r%s*]*[\n\r]?$", ""):gsub("([\t%s][\t%s]*)", " ")
+end
+
 return {
-    clearTable = clearTable
+    clearTable = clearTable,
+    cleanWhitespace = cleanWhitespace
 }
