@@ -5,14 +5,16 @@ local Container = require(PATH .. "Container")
 local Class = require(PATH .. "Class")
 local Flow = require(PATH .. "Flow")
 local GlobalVariables = require(PATH .. "GlobalVariables")
+local ListDefinitions = require(PATH .. "ListDefinitions")
+local InstructionBuilder = require(PATH .. "InstructionBuilder")
 local Value = require(PATH .. "Value")
 
 --- @class Nomicon.Impl.Executor
 local Executor = Class()
 
-function Executor:new(root, listDefinitions, globalVariables)
-    self._root = root
-    self._listDefinitions = listDefinitions
+function Executor:new(globalVariables)
+    self._root = Container(nil, "root", {}, InstructionBuilder(self))
+    self._listDefinitions = ListDefinitions({})
 
     self._visitCounts = {}
     self._turnCounts = {}
@@ -84,12 +86,20 @@ function Executor:getRandomSeed()
     return self._getSeedFunc()
 end
 
+function Executor:setRootContainer(value)
+    self._root = value
+end
+
 function Executor:getRootContainer()
     return self._root
 end
 
 function Executor:getListDefinitions()
     return self._listDefinitions
+end
+
+function Executor:setListDefinitions(value)
+    self._listDefinitions = value
 end
 
 function Executor:getContainer(path)
@@ -384,7 +394,7 @@ function Executor:call(path, ...)
     if self._isCallingExternalFunction then
         error("cannot call function while in external function")
     end
-    
+
     local container, index = self:getPointer(path)
     self:divertToPointer(Constants.DIVERT_TO_FUNCTION, container, index)
 

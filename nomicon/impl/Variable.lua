@@ -7,6 +7,7 @@ local Variable = Class()
 local ASSIGN_GLOBAL_VARIABLE    = Constants.ASSIGN_GLOBAL_VARIABLE
 local ASSIGN_TEMPORARY_VARIABLE = Constants.ASSIGN_TEMPORARY_VARIABLE
 local REFERENCE_VARIABLE        = Constants.REFERENCE_VARIABLE
+local READ_COUNT                = Constants.READ_COUNT
 
 function Variable:new(object)
     self._object = object
@@ -20,6 +21,9 @@ function Variable:new(object)
     elseif object[REFERENCE_VARIABLE] then
         self._type = REFERENCE_VARIABLE
         self._name = object[REFERENCE_VARIABLE]
+    elseif object[READ_COUNT] then
+        self._type = READ_COUNT
+        self._name = object[READ_COUNT]
     end
 
     self._isCreate = not object[Constants.FIELD_VARIABLE_REASSIGNMENT]
@@ -45,15 +49,24 @@ function Variable:getIsReference()
     return self._type == REFERENCE_VARIABLE
 end
 
+function Variable:getIsReadyCount()
+    return self._type == READ_COUNT
+end
+
 function Variable:getIsCreate()
     return self._isCreate
 end
 
 function Variable:call(executor)
-    if self:getIsReference() then
-        local value = executor:getTemporaryVariable(self._name) or executor:getGobalVariable(self._name)
-        if not value then
-            error(string.format("no temporary or global with name '%s' found", value))
+    if self:getIsReference()  or self:getIsReadyCount() then
+        local value
+        if self:getIsReference() then
+            value = executor:getTemporaryVariable(self._name) or executor:getGlobalVariable(self._name)
+            if not value then
+                error(string.format("no temporary or global with name '%s' found", self._name))
+            end
+        elseif self:getIsReadyCount() then
+            value = executor:getVisitCountForContainer(executor:getContainer(self._name))
         end
 
         if executor:getIsInExpressionEvaluation() then
@@ -79,7 +92,7 @@ function Variable.isVariable(instruction)
         return false
     end
 
-    local hasValue = instruction[ASSIGN_GLOBAL_VARIABLE] or instruction[ASSIGN_TEMPORARY_VARIABLE] or instruction[REFERENCE_VARIABLE]
+    local hasValue = instruction[ASSIGN_GLOBAL_VARIABLE] or instruction[ASSIGN_TEMPORARY_VARIABLE] or instruction[REFERENCE_VARIABLE] or instruction[READ_COUNT]
     return not not hasValue
 end
 

@@ -143,6 +143,24 @@ function ListDefinitions:newListFromValues(listName, ...)
     return List(self, values)
 end
 
+function ListDefinitions:newListFromObject(object)
+    local values = {}
+    for listValueName, listValue in pairs(object.list) do
+        local value = self:tryGetValue(listValueName)
+        if not value then
+            error(string.format("list value name '%s' not found", listValueName))
+        end
+
+        if value:getValue() ~= listValue then
+            value = ListValue(value:getListName(), value:getValueName(), listValue)
+        end
+
+        table.insert(values, value)
+    end
+
+    return List(self, values)
+end
+
 function ListDefinitions:tryGetListValues(name)
     local i, j = name:find("%.")
     if i and j then
@@ -177,7 +195,14 @@ end
 function ListDefinitions:tryGetValue(a, b)
     if a ~= nil then
         if a:find("%.") or b == nil then
-            return (table.unpack or unpack)(self._values[a])
+            local values = self._values[a] or self._values[a:match("[^.]*%.(%w+)")]
+            if values then
+                -- We can't short circuit because it will collapse the unpack into a single value
+                -- So no `return values and unpack(values)`...
+                return (table.unpack or unpack)(values)
+            end
+
+            return nil
         elseif b ~=  nil then
             local origin = self._origins[a]
             if origin then

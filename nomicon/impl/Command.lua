@@ -161,8 +161,9 @@ local COMMANDS = {
     end,
 
     [PUSH_VISITS] = function(executor)
-        local container = executor:getCurrentContainer()
-        executor:getEvaluationStack():push(executor:getVisitCountForContainer(container) - 1)
+        local container = executor:getCurrentFlow():getCurrentThread():getCurrentPointer()
+        local visitCount = executor:getVisitCountForContainer(container) - 1
+        executor:getEvaluationStack():push(visitCount)
     end,
 
     [PUSH_SHUFFLE_INDEX] = function(executor)

@@ -1,18 +1,12 @@
 local bit = require("bit")
 local PATH = (...):gsub("[^%.]+$", "")
-local ChoicePoint = require(PATH .. "ChoicePoint")
 local Class = require(PATH .. "Class")
-local Command = require(PATH .. "Command")
 local Constants = require(PATH .. "Constants")
-local Divert = require(PATH .. "Divert")
-local NativeFunction = require(PATH .. "NativeFunction")
 local Path = require(PATH .. "Path")
-local Value = require(PATH .. "Value")
-local Variable = require(PATH .. "Variable")
 
 local Container = Class()
 
-function Container:new(parent, name, object)
+function Container:new(parent, name, object, instructionBuilder)
     self._parent = parent
     self._name = name
     self._object = object
@@ -22,7 +16,7 @@ function Container:new(parent, name, object)
     self._content = {}
     self._namedContent = {}
 
-    self:_parse()
+    self:_parse(instructionBuilder)
 end
 
 function Container:pointer(path)
@@ -120,26 +114,6 @@ function Container:getContent(key)
     return nil
 end
 
-function Container:_parseInstruction(index, instruction)
-    if NativeFunction.isNativeFunction(instruction) then
-        return NativeFunction(instruction)
-    elseif Command.isCommand(instruction) then
-        return Command(instruction)
-    elseif Divert.isDivert(instruction) then
-        return Divert(instruction)
-    elseif Value.isValue(instruction) then
-        return Value(nil, instruction, instruction)
-    elseif Variable.isVariable(instruction) then
-        return Variable(instruction)
-    elseif ChoicePoint.isChoicePoint(instruction) then
-        return ChoicePoint(self, instruction)
-    elseif Container.isContainer(instruction) then
-        return Container(self, index, instruction)
-    end
-
-    return nil
-end
-
 function Container:_addNamedContent(name, container)
     if self._namedContent[name] ~= nil then
         error(string.format("container '%s' has named content '%s'", self:getPath():toString(), name))
@@ -154,7 +128,7 @@ function Container:_addNamedContent(name, container)
     self._namedContent[name] = container
 end
 
-function Container:_parseNamedContent(instruction)
+function Container:_parseNamedContent(instruction, instructionBuilder)
     if type(instruction) ~= "table" or #instruction >= 1 then
         return
     end
@@ -165,10 +139,12 @@ function Container:_parseNamedContent(instruction)
 
     -- 'null' is lost, so we have to handle end of container differently
     local isContainer = true
-    for _, value in pairs(instruction) do
-        isContainer = isContainer and Container.isContainer(value)
-        if not isContainer then
-            break
+    for key, value in pairs(instruction) do
+        if key ~= Constants.FIELD_CONTAINER_NAME and key ~= Constants.FIELD_CONTAINER_FLAGS then
+            isContainer = isContainer and Container.isContainer(value)
+            if not isContainer then
+                break
+            end
         end
     end
 
@@ -177,17 +153,19 @@ function Container:_parseNamedContent(instruction)
     end
 
     for name, content in pairs(instruction) do
-        local container = Container(self, name, content)
-        self:_addNamedContent(name, container)
+        if name ~= Constants.FIELD_CONTAINER_NAME and name ~= Constants.FIELD_CONTAINER_FLAGS then
+            local container = Container(self, name, content, instructionBuilder)
+            self:_addNamedContent(name, container)
+        end
     end
 end
 
-function Container:_parse()
+function Container:_parse(instructionBuilder)
     for index, instruction in ipairs(self._object) do
-        local content = self:_parseInstruction(index, instruction)
+        local content = instructionBuilder:parse(self, index, instruction)
 
         if content == nil and index == #self._object then
-            self:_parseNamedContent(instruction)
+            self:_parseNamedContent(instruction, instructionBuilder)
         elseif content then
             if Class.isDerived(Class.getType(content), Container) then
                 local name = content:getObject()[Constants.FIELD_CONTAINER_NAME]
@@ -212,7 +190,7 @@ function Container:call(executor)
     end
 
     currentThread:getCallStack():jump(self, 0)
-    executor:visit(self)
+    executor:visit(self, true)
 end
 
 function Container.isContainer(instruction)

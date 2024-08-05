@@ -117,7 +117,7 @@ function GlobalVariables:get(key)
 end
 
 function GlobalVariables:set(key, value, fireObservers)
-    if not Class.isCompatibleType(Class.getClass(value), Value) then
+    if not Class.isDerived(Class.getType(value), Value) then
         value = Value(nil, value)
     end
 

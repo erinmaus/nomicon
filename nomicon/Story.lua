@@ -6,6 +6,7 @@ local Executor = require(PATH .. "impl.Executor")
 local GlobalVariables = require(PATH .. "impl.GlobalVariables")
 local ListDefinitions = require(PATH .. "impl.ListDefinitions")
 local Value = require(PATH .. "impl.Value")
+local InstructionBuilder = require(PATH .. "impl.InstructionBuilder")
 
 --- @alias Nomicon.Value Nomicon.Impl.Value | Nomicon.Impl.Divert | Nomicon.Impl.List | Nomicon.Impl.Pointer | number | string | boolean
 
@@ -28,13 +29,28 @@ function Story:new(book, defaultGlobalVariables)
         end
     end
 
-    local listDefinitions = ListDefinitions(book.listDefs or {})
-    local container = Container(nil, "root", book.root or {})
+    self._executor = Executor(self._globalVariables)
 
-    self._executor = Executor(container, listDefinitions, self._globalVariables)
+    local listDefinitions = ListDefinitions(book.listDefs or {})
+    self._executor:setListDefinitions(listDefinitions)
+
+    local container = Container(nil, "root", book.root or {}, InstructionBuilder(self._executor))
+    self._executor:setRootContainer(container)
+
+    self:_loadGlobals()
 
     local callStack = self._executor:getCurrentFlow():getCurrentThread():getCallStack()
     callStack:enter(Constants.DIVERT_START, self._executor:getRootContainer(), 1)
+end
+
+function Story:_loadGlobals()
+    local globals = self._executor:getRootContainer():getContent(Constants.GLOBAL_VARIABLES_NAMED_CONTENT)
+    if globals then
+        self._executor:getCurrentFlow():getCurrentThread():getCallStack():enter(Constants.DIVERT_START, globals, 0)
+        self._executor:continue()
+
+        assert(not self._executor:canContinue(), "global variable initialization container bad")
+    end
 end
 
 --- Configures the RNG for the story.

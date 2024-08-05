@@ -1,7 +1,24 @@
-package.path = string.format("%s/?.lua;%s/?/init.lua", love.filesystem.getSourceBaseDirectory(), love.filesystem.getSourceBaseDirectory())
-
 local utility = require("utility")
 local isCI = utility.getIsCI(...)
+
+local RED = "\027[31m"
+local GREEN = "\027[32m"
+local WHITE = "\027[0m"
+
+local PUSH_COLORS = {
+    [RED] = { 1, 0, 0, 1 },
+    [GREEN] = { 0, 1, 0, 1 },
+    [WHITE] = { 1, 1, 1, 1 }
+}
+
+local function printf(format, ...)
+    local message = format:format(...)
+    if love.system.getOS() == "Windows" then
+        message = message:gsub("[\27\155][][()#;?%d]*[A-PRZcf-ntqry=><~]", "")
+    end
+
+    print(message)
+end
 
 local SUITES = {}
 do
@@ -11,8 +28,8 @@ do
         if love.filesystem.getInfo(testsFilename) then
             local chunk, e = love.filesystem.load(testsFilename)
 
-            if isCI and not chunk then
-                print("failed to create test suite '%s': %s", testsFilename, e)
+            if not chunk then
+                printf("%sfailed to create test suite '%s': %s%s", RED, testsFilename, e, WHITE)
             end
 
             table.insert(SUITES, {
@@ -46,26 +63,22 @@ function love.update()
                 
                 if not success then
                     local message = debug.traceback(suite.thread, string.format("error: %s", result))
-                    if isCI then
-                        print(message)
-                    else
-                        table.insert(suite.errors, message)
-                    end
+                    printf("%serror:%s %s", RED, WHITE, message)
+                    table.insert(suite.errors, message)
 
                     suite.didFail = true
                 elseif type(result) == "table" then
-                    if isCI then
-                        local status = result.success and "PASS" or "FAIL"
-                        print(string.format("%s %s: %s", status, suite.name, result.name or "???"))
-                    else
-                        table.insert(suite.tests, {
-                            success = result.success or false,
-                            name = result.name or "???",
-                            message = result.message
-                        })
-                        
-                        suite.didFail = suite.didFail or not result.success
-                    end
+                    local status = result.success and "PASS" or "FAIL"
+                    local color = result.success and GREEN or RED
+                    printf("%s%s%s %s: %s %s", color, status, WHITE, suite.name, result.name or "???", (result.message and "\n" .. result.message) or "")
+
+                    table.insert(suite.tests, {
+                        success = result.success or false,
+                        name = result.name or "???",
+                        message = result.message
+                    })
+                    
+                    suite.didFail = suite.didFail or not result.success
                 end
                 
                 if coroutine.status(suite.thread) == "dead" then
@@ -104,15 +117,13 @@ function love.keypressed(key)
     end
 end
 
-local RED = { 1, 0, 0, 1 }
-local GREEN = { 0, 1, 0, 1 }
-local WHITE = { 1, 1, 1, 1 }
-
 function love.draw()
     local coloredText = {}
     local text = {}
 
     local function push(color, message, ...)
+        color = PUSH_COLORS[color]
+
         local t = string.format(message, ...) .. "\n"
         table.insert(text, t)
 
@@ -138,10 +149,23 @@ function love.draw()
 
         for _, test in ipairs(suite.tests) do
             if test.success then
-                push(GREEN, "PASS %s", test.name or "???")
+                push(GREEN, "PASS %s -> %s", suite.name, test.name or "???")
             else
-                push(RED, "FAIL %s: %s", test.name or "???", test.message)
+                push(RED, "FAIL %s -> %s: %s", suite.name, test.name or "???", test.message)
             end
+        end
+    end
+
+    for _, suite in ipairs(SUITES) do
+        isRunning = isRunning and not suite.isDone
+
+        if suite.didFail then
+            isGreen = false
+            push(RED, "Suite '%s' failed! %d tests completed.", suite.name, #suite.tests)
+        elseif suite.isDone then
+            push(GREEN, "Suite '%s' passed! %d tests completed.", suite.name, #suite.tests)
+        else
+            push(WHITE, "Suite '%s' running... %d tests completed.", suite.name, #suite.tests)
         end
     end
 
