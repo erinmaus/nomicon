@@ -73,6 +73,7 @@ local COMMANDS = {
     end,
 
     [RETURN_FUNCTION] = function(executor)
+        executor:getCurrentFlow():trimWhitespace()
         executor:getCallStack():leave(Constants.DIVERT_TO_FUNCTION)
     end,
 

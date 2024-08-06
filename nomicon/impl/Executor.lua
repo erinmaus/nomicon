@@ -1,5 +1,6 @@
 local PATH = (...):gsub("[^%.]+$", "")
 local Choice = require(PATH .. "Choice")
+--- @module "nomicon.impl.Constants"
 local Constants = require(PATH .. "Constants")
 local Container = require(PATH .. "Container")
 local Class = require(PATH .. "Class")
@@ -61,7 +62,7 @@ function Executor:new(globalVariables)
     end
 end
 
-function Executor:resetCount()
+function Executor:resetCounts()
     Utility.clearTable(self._visitCounts)
     Utility.clearTable(self._turnCounts)
 end
@@ -168,6 +169,14 @@ function Executor:getPreviousPointer()
     return self._currentFlow:getCurrentThread():getPreviousPointer()
 end
 
+function Executor:pushGlobalVariables()
+    self._globalVariables = GlobalVariables(self._globalVariables)
+end
+
+function Executor:popGlobalVariables()
+    self._globalVariables = self._globalVariables:getParent()
+end
+
 function Executor:getGlobalVariables()
     return self._globalVariables
 end
@@ -223,13 +232,13 @@ function Executor:visit(container, isStart)
         return
     end
 
-    local pathName = container:getPath():toString()
+    local name = container:getNiceName() or container:getPath():toString()
     if container:getShouldCountTurns() then
-        self._turnCounts[pathName] = self:getTurnCount()
+        self._turnCounts[name] = self:getTurnCount()
     end
 
     if container:getShouldCountVisits() then
-        self._visitCounts[pathName] = (self._visitCounts[pathName] or 0) + 1
+        self._visitCounts[name] = (self._visitCounts[name] or 0) + 1
     end
 end
 
@@ -248,7 +257,7 @@ function Executor:getVisitCountForContainer(container)
         return -1
     end
 
-    local pathName = container:getPath():toString()
+    local pathName = container:getNiceName() or container:getPath():toString()
     return self._visitCounts[pathName] or 0
 end
 
@@ -302,7 +311,10 @@ end
 
 function Executor:startThread()
     self._currentFlow:push()
-    self:_advancePointer(self._currentFlow:getThread(-2))
+
+    local previousThread = self._currentFlow:getThread(-2)
+    previousThread:updatePreviousPointer()
+    self:_advancePointer(previousThread)
 end
 
 function Executor:done()
@@ -492,21 +504,24 @@ function Executor:choose(value)
     return self:_choosePath(value)
 end
 
-function Executor:_divert()
-    local thread = self._currentFlow:getCurrentThread()
-    local divertType = thread:getDivertedPointerType()
-    local container, index = thread:getDivertedPointer()
-
-    if divertType == Constants.DIVERT_TO_FUNCTION or divertType == Constants.DIVERT_TO_TUNNEL then
-        thread:getCallStack():enter(divertType, container, index)
-    else
-        thread:getCallStack():jump(container, index)
-    end
-
-    thread:clearDivertedPointer()
+function Executor:_updateVisits(thread)
+    thread = thread or self._currentFlow:getCurrentThread()
 
     local previousContainer, previousIndex = thread:getPreviousPointer()
     local currentContainer, currentIndex = thread:getCurrentPointer()
+
+    if previousContainer and currentContainer then
+        local previousChild = previousContainer:getContent(previousIndex)
+        local currentChild = currentContainer:getContent(currentIndex)
+
+        if previousChild ~= currentChild and Class.isDerived(Class.getType(currentChild), Container) then
+            self:visit(currentChild, true)
+        end
+    end
+
+    if previousContainer == currentContainer then
+        return
+    end
 
     local index
     if not previousContainer then
@@ -515,18 +530,9 @@ function Executor:_divert()
         local parent = currentContainer:getPath():getCommonParent(previousContainer:getPath())
         local _, parentIndex = currentContainer:getPath():contains(parent)
 
-        index = parentIndex
+        index = parentIndex + 1
     else
         return
-    end
-
-    if previousContainer and currentContainer then
-        local previousChild = previousContainer:getContent(previousIndex)
-        local currentChild = currentContainer:getContent(currentIndex)
-
-        if previousChild ~= currentChild and Class.isDerived(Class.getType(currentChild), Container) then
-            self:visit(currentChild, currentIndex == 1)
-        end
     end
 
     local path = currentContainer:getPath()
@@ -545,12 +551,27 @@ function Executor:_divert()
     end
 end
 
+function Executor:_divert(thread)
+    thread = thread or self._currentFlow:getCurrentThread()
+
+    local divertType = thread:getDivertedPointerType()
+    local container, index = thread:getDivertedPointer()
+
+    if divertType == Constants.DIVERT_TO_FUNCTION or divertType == Constants.DIVERT_TO_TUNNEL then
+        thread:getCallStack():enter(divertType, container, index)
+    else
+        thread:getCallStack():jump(container, index)
+    end
+
+    thread:clearDivertedPointer()
+    self:_updateVisits(thread)
+end
+
 function Executor:_advancePointer(thread)
     thread = thread or self._currentFlow:getCurrentThread()
-    thread:updatePreviousPointer()
-    
+
     if thread:hasDivertedPointer() then
-        self:_divert()
+        self:_divert(thread)
         return true
     end
 
@@ -578,14 +599,17 @@ function Executor:_advancePointer(thread)
         local callStack = thread:getCallStack()
         local frame = callStack:getFrameCount() > 1 and callStack:getFrame()
         if frame and (frame:canLeave(Constants.DIVERT_TO_FUNCTION) or frame:canLeave(Constants.DIVERT_TO_TUNNEL)) then
+            if frame:getType() == Constants.DIVERT_TO_FUNCTION then
+                self._currentFlow:trimWhitespace()
+            end
+
             thread:getCallStack():leave(frame:getType())
             self:getEvaluationStack():push(Value.VOID)
         end
-
-        return false
     end
 
-    return true
+    self:_updateVisits(thread)
+    return container and index
 end
 
 function Executor:_execute()
@@ -601,6 +625,8 @@ function Executor:_execute()
 end
 
 function Executor:_advance()
+    self._currentFlow:getCurrentThread():updatePreviousPointer()
+
     local didAdvance
     repeat
         didAdvance = self:_advancePointer()
@@ -646,39 +672,27 @@ function Executor:_tryDefaultChoice()
     end
 end
 
-function Executor:canContinue()
+function Executor:_shouldContinue()
     return self._currentFlow:getCurrentThread():getCurrentPointer() ~= nil
 end
 
-function Executor:_shouldStop()
-    local stack = self._currentFlow:getOutputStack()
-
-    if stack:getCount() == 0 then
-        return false
-    end
-
-    if stack:isWhitespace() then
-        return false
-    end
-
-    local top = stack:peek()
-    return top and top:is(Constants.TYPE_STRING) and top:getValue():find("\n$")
+function Executor:canContinue()
+    return self._currentFlow:getCurrentThread():getCurrentPointer() ~= nil or self._currentFlow:getOutputStack():getCount() >= 1
 end
-
 
 function Executor:continue()
     if not self:canContinue() then
         error("cannot continue executor; not in valid state")
     end
 
-    self._currentFlow:getOutputStack():clear()
-
-    while self:canContinue() do
+    while self:_shouldContinue() do
         self:step()
 
-        if self:_shouldStop() then
+        if not self._currentFlow:shouldContinue() then
             break
         end
+
+        self._currentFlow:step()
     end
 
     self._currentFlow:continue()

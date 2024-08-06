@@ -245,7 +245,7 @@ local PERFORM = {
             local b = rightValue:cast(coercedType)
 
             if a ~= nil and b ~= nil then
-                return a <= b
+                return a >= b
             end
         end
 

@@ -92,34 +92,39 @@ local function runTest(test)
             end
         end
 
-        if story:hasChoices() and currentChoicePoint > test.currentChoicePoint then
-            local choicePoint = test.choicePoints[currentChoicePoint]
-            currentChoicePoint = currentChoicePoint + 1
+        if story:hasChoices() then
+            if currentChoicePoint > test.currentChoicePoint and currentChoicePoint < #test.choicePoints then
+                local choicePoint = test.choicePoints[currentChoicePoint]
+                currentChoicePoint = currentChoicePoint + 1
 
-            local choiceCount = 0
-            local firstChoice
-            for i = 1, story:getChoiceCount() do
-                if story:getChoice(i):getIsSelectable() and not story:getChoice(i):getChoicePoint():getIsInvisibleDefault() then
-                    choiceCount = choiceCount + 1
-                    firstChoice = firstChoice or story:getChoice(i)
-                end
-            end
-
-            lu.assertEquals(choiceCount, choicePoint.n, "choice count mismatch")
-
-            local choicePointIndex = 0
-            for i = 1, story:getChoiceCount() do
-                local choice = story:getChoice(i)
-                if choice:getIsSelectable() and not choice:getChoicePoint():getIsInvisibleDefault() then
-                    choicePointIndex = choicePointIndex + 1
-                    if choicePoint[choicePointIndex] ~= "" then
-                        lu.assertEquals(choice:getText(), choicePoint[choicePointIndex], "choice text mismatch")
+                local choiceCount = 0
+                local firstChoice
+                for i = 1, story:getChoiceCount() do
+                    if story:getChoice(i):getIsSelectable() and not story:getChoice(i):getChoicePoint():getIsInvisibleDefault() then
+                        choiceCount = choiceCount + 1
+                        firstChoice = firstChoice or story:getChoice(i)
                     end
                 end
-            end
 
-            local success = story:choose(firstChoice)
-            lu.assertEquals(success, true, "must succeed with first choice")
+                lu.assertEquals(choiceCount, choicePoint.n, "choice count mismatch")
+
+                local choicePointIndex = 0
+                for i = 1, story:getChoiceCount() do
+                    local choice = story:getChoice(i)
+                    if choice:getIsSelectable() and not choice:getChoicePoint():getIsInvisibleDefault() then
+                        choicePointIndex = choicePointIndex + 1
+                        if choicePoint[choicePointIndex] ~= "" then
+                            lu.assertEquals(choice:getText(), choicePoint[choicePointIndex], "choice text mismatch")
+                        end
+                    end
+                end
+
+                local success = story:choose(firstChoice)
+                lu.assertEquals(success, true, "must succeed with first choice")
+            else
+                local success = Nomicon.ChoiceList(story):getChoice(1):choose()
+                lu.assertEquals(success, true, "must succeed with first choice")
+            end
         end
     end
 

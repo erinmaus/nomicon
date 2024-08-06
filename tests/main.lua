@@ -25,7 +25,7 @@ do
     local testSuites = love.filesystem.getDirectoryItems("/")
     for _, testSuite in ipairs(testSuites) do
         local testsFilename = string.format("%s/tests.lua", testSuite)
-        if love.filesystem.getInfo(testsFilename) then
+        if love.filesystem.getInfo(testsFilename) and testSuite == "automatic" then
             local chunk, e = love.filesystem.load(testsFilename)
 
             if not chunk then

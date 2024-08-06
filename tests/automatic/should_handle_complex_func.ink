@@ -6,6 +6,7 @@
 . {print_num(1234)} .
 
 === function print_num(x) ===
+~ x = FLOOR(x)
 {
     - x >= 1000:
         {print_num(x / 1000)} thousand { x mod 1000 > 0:{print_num(x mod 1000)}}
@@ -15,7 +16,7 @@
         zero
     - else:
         { x >= 20:
-            { x / 10:
+            { FLOOR(x / 10):
                 - 2: twenty
                 - 3: thirty
                 - 4: forty

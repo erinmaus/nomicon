@@ -47,7 +47,7 @@ function ChoiceList:getChoice(index)
         end
 
         if count == index then
-            return Choice(self._story:getChoice(i))
+            return Choice(self._story:getChoice(i), index, self._story)
         end
     end
 

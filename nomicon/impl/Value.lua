@@ -60,7 +60,9 @@ end
 CASTS[NUMBER][STRING] = function(value)
     local isFloat = math.abs(value) - math.floor(math.abs(value)) > 0
     if isFloat then
-        return string.format("%1.7f", value)
+        local long = string.format("%f", value)
+        local digits = #long:match("^(%d+)%.") + 7
+        return string.format(string.format("%%.%dg", digits), value)
     end
 
     return tostring(value)
@@ -109,7 +111,7 @@ end
 
 -- Cast from glue
 CASTS[GLUE][STRING] = function(_value)
-    return "\0"
+    return "\127"
 end
 
 -- Cast from tag

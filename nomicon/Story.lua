@@ -32,7 +32,7 @@ function Story:new(book, defaultGlobalVariables)
     local listDefinitions = ListDefinitions(book.listDefs or {})
     self._executor:setListDefinitions(listDefinitions)
 
-    local container = Container(nil, "root", book.root or {}, InstructionBuilder(self._executor))
+    local container = Container(nil, nil, book.root or {}, InstructionBuilder(self._executor))
     self._executor:setRootContainer(container)
 
     self:_loadGlobals()
@@ -54,7 +54,7 @@ end
 function Story:_loadGlobals()
     local globals = self._executor:getRootContainer():getContent(Constants.GLOBAL_VARIABLES_NAMED_CONTENT)
     if globals then
-        self._executor:getCurrentFlow():getCurrentThread():getCallStack():enter(Constants.DIVERT_START, globals, 0)
+        self._executor:getCurrentFlow():getCurrentThread():getCallStack():enter(Constants.DIVERT_START, globals, 1)
         self._executor:continue()
         self._executor:stop()
 
@@ -70,7 +70,9 @@ function Story:_loadGlobalTags()
     local callStack = self._executor:getCurrentFlow():getCurrentThread():getCallStack()
     callStack:enter(Constants.DIVERT_START, self._executor:getRootContainer(), 1)
 
-    self:continue()
+    self._executor:pushGlobalVariables()
+    self._executor:continue()
+    self._executor:popGlobalVariables()
 
     self._globalTags = {}
     for i = 1, self._executor:getTagCount() do
@@ -78,7 +80,7 @@ function Story:_loadGlobalTags()
     end
 
     self._executor:deleteFlow(TEMP_FLOW_NAME)
-    self._executor:resetCount()
+    self._executor:resetCounts()
 end
 
 --- Configures the RNG for the story.

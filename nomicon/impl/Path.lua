@@ -1,5 +1,6 @@
 local PATH = (...):gsub("[^%.]+$", "")
 local Class = require(PATH .. "Class")
+local Constants = require(PATH .. "Constants")
 
 local Path = Class()
 
@@ -99,6 +100,10 @@ function Path:toString(other)
     else
         return self._absolutePath
     end
+end
+
+function Path:getNiceName()
+    return self._niceName
 end
 
 return Path
