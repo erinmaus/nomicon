@@ -579,6 +579,7 @@ function Executor:_advancePointer(thread)
         local frame = callStack:getFrameCount() > 1 and callStack:getFrame()
         if frame and (frame:canLeave(Constants.DIVERT_TO_FUNCTION) or frame:canLeave(Constants.DIVERT_TO_TUNNEL)) then
             thread:getCallStack():leave(frame:getType())
+            self:getEvaluationStack():push(Value.VOID)
         end
 
         return false
@@ -599,10 +600,12 @@ function Executor:_execute()
     end
 end
 
-function Executor:step()
-    self:_execute()
+function Executor:_advance()
+    local didAdvance
+    repeat
+        didAdvance = self:_advancePointer()
+    until didAdvance or not self._currentFlow:getCurrentThread():getCurrentPointer()
 
-    local didAdvance = self:_advancePointer()
     while not self._currentFlow:getCurrentThread():getCurrentPointer() and self._currentFlow:canPop() do
         self._currentFlow:pop()
         didAdvance = didAdvance or self:_advancePointer()
@@ -611,6 +614,11 @@ function Executor:step()
     if not didAdvance then
         self:_tryDefaultChoice()
     end
+end
+
+function Executor:step()
+    self:_execute()
+    self:_advance()
 end
 
 function Executor:_tryDefaultChoice()

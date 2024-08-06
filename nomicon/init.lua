@@ -390,7 +390,7 @@ Nomicon.Story = require(PATH .. "Story")
 Nomicon.ChoiceList = require(PATH .. "ChoiceList")
 
 --- @module "nomicon.impl.Value"
-Nomicon.Value = require(PATH .. "Impl.Value")
+Nomicon.Value = require(PATH .. "impl.Value")
 
 --- @module "nomicon.impl.Constants"
 Nomicon.Constants = require(PATH .. "Impl.Constants")

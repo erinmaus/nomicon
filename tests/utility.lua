@@ -26,11 +26,11 @@ local function collectTests(path, pattern)
 
     for _, filename in ipairs(filenames) do
         local testName = filename:match("^(.*)%.json$")
-        testName = testName and testName:gsub("_", " ")
+        local niceName = testName and testName:gsub("_", " ")
 
-        if testName and (not pattern or testName:match(pattern)) then
+        if  niceName and (not pattern or  niceName:match(pattern)) then
             local test = {
-                name = testName,
+                name = niceName,
                 book = json.decode(love.filesystem.read(string.format("%s/%s", path, filename))),
                 content = love.filesystem.read(string.format("%s/%s.txt", path, testName)) or "",
                 choicePoints = {},
@@ -148,8 +148,6 @@ local function runTests(tests)
             else
                 error(message)
             end
-
-            return
         else
             coroutine.yield({
                 success = true,

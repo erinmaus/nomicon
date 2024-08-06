@@ -1,6 +1,7 @@
 local lu = require "lib.luaunit"
 local json = require "lib.json"
 local Nomicon = require "nomicon"
+local Class = require "nomicon.impl.Class"
 local utility = require "utility"
 
 local tests = {}
@@ -145,6 +146,32 @@ test("should test external functions", function()
     lu.assertEquals(story:continue(), "All players are dead! GAME OVER, BRUH!\n")
 
     lu.assertIsFalse(story:canContinue())
+end)
+
+test("should test global variable listeners", function()
+    local story = loadStory("should_test_global_variables")
+
+    local badVariableName
+    story:listenForGlobalVariable("*", function(badValue, variableName, currentValue, previousValue)
+        if currentValue == badValue then
+            badVariableName = variableName
+            return previousValue
+        end
+
+        return currentValue
+    end, true, "bye")
+
+    local example1
+    story:listenForGlobalVariable("example_1", function(currentValue)
+        example1 = Nomicon.Value(nil, currentValue)
+    end, false)
+
+    story:choose("the_story")
+    lu.assertEquals(story:continue(), "hello world\n")
+    lu.assertEquals(story:continue(), "good world\n")
+    lu.assertEquals(badVariableName, "example_2")
+    lu.assertTrue(Class.isDerived(Class.getType(example1), Nomicon.Value))
+    lu.assertEquals(example1:getValue(), "good")
 end)
 
 utility.runTests(tests)

@@ -7,7 +7,7 @@ local TemporaryVariables = Class()
 
 local function __index(self, key)
     local metatable = getmetatable(self)
-    return metatable._variables[key] or (metatable._parent and metatable._parent[key])
+    return metatable._variables[key] or (metatable._parent and metatable._parent:get(key))
 end
 
 local function __newindex(self, key, value)

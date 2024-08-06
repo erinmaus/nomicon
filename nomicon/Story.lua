@@ -123,7 +123,7 @@ function Story:setGlobalVariable(variableName, value)
 end
 
 
---- @alias Nomicon.GlobalVariableListener fun(args...: any, key: string, value: Nomicon.Value, previousValue: Nomicon.Value) | fun(args...: any, value: Nomicon.Value, previousValue: Nomicon.Value)
+--- @alias Nomicon.GlobalVariableListener fun(args...: any, key: string, value: Nomicon.Value, previousValue: Nomicon.Value): any | fun(args...: any, value: Nomicon.Value, previousValue: Nomicon.Value): any
 
 --- Listen for a variable with the given name.
 --- 
@@ -131,6 +131,9 @@ end
 --- 1. Any arguments passed AFTER the last named argument will be passed FIRST to func.
 ---    This means you can bind a method by passing in 'func' and 'self'.
 --- 2. When using "*", the key (variable name) will be provided as the first named argument.
+--- 
+--- If the function returns a value, this will override the value of the assignment.
+--- Only the last registered listener that returns a value can override the return value.
 --- 
 --- @param variableName string|"*" the name of the global variable or "*" to listen for all global variables
 --- @param func Nomicon.GlobalVariableListener the global variable listener

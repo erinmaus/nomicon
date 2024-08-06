@@ -9,35 +9,35 @@ GlobalVariables.ANY = "*"
 
 local function __index(self, key)
     local metatable = getmetatable(self)
-    return metatable._variables[key] or (metatable._parent and metatable._parent[key])
+    return metatable._variables[key] or (metatable._parent and metatable._parent:get(key))
 end
 
 local function __newindex(self, key, value)
     local metatable = getmetatable(self)
     
-    local listeners = metatable._onChange[key] or metatable._onChange[""]
+    local listeners = metatable._onChange[key] or metatable._onChange["*"]
     if listeners ~= nil then
-        local previousValue = self._variables[key] or Value.VOID
+        local previousValue = metatable._variables[key] or (metatable._parent and metatable._parent:get(key)) or Value.VOID
 
         for _, listener in ipairs(listeners) do
             if listeners == metatable._onChange[GlobalVariables.ANY] then
                 listener.args[listener.n + 1] = key
-                listeners.args[listener.n + 2] = listener.marshal and value:getValue() or value
-                listeners.args[listener.n + 3] = listener.marshal and previousValue:getValue() or previousValue
-                listener.func((table.unpack or unpack)(listener.args, 1, listener.n + 3))
+                listener.args[listener.n + 2] = listener.marshal and value:getValue() or value
+                listener.args[listener.n + 3] = listener.marshal and previousValue:getValue() or previousValue
+                value = listener.func((table.unpack or unpack)(listener.args, 1, listener.n + 3)) or value
             else
-                listeners.args[listener.n + 1] = listener.marshal and value:getValue() or value
-                listeners.args[listener.n + 2] = listener.marshal and previousValue:getValue() or previousValue
-                listener.func((table.unpack or unpack)(listener.args, 1, listener.n + 2))
+                listener.args[listener.n + 1] = listener.marshal and value:getValue() or value
+                listener.args[listener.n + 2] = listener.marshal and previousValue:getValue() or previousValue
+                value = listener.func((table.unpack or unpack)(listener.args, 1, listener.n + 2)) or value
             end
         end
     end
 
-    local variable = self._variables[key]
-    if not variable then
-        variable = Value(nil, value)
-    else
+    local variable = metatable._variables[key]
+    if variable and Class.isDerived(Class.getType(value), Value) then
         value:copy(variable)
+    else
+        variable = Value(nil, value)
     end
 
     metatable._variables[key] = variable

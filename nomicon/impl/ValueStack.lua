@@ -155,7 +155,7 @@ function ValueStack:pop(count)
     end
 
     if self._top <= 0 then
-        assert(self._top == 0, "stack somehow became unbalance (less than 0 values)")
+        assert(self._top == 0, "stack somehow became unbalanced (less than 0 values)")
         error("cannot pop; no values in stack!")
     end
 
