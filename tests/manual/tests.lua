@@ -27,23 +27,23 @@ test("should test LIST_RANDOM", function()
     end
 end)
 
--- test("should test tags in choice", function()
---     local story = loadStory("should_test_tags_in_choice")
+test("should test tags in choice", function()
+    local story = loadStory("should_test_tags_in_choice")
 
---     story:continue()
+    story:continue()
 
---     lu.assertEquals(story:getChoiceCount(), 1)
---     lu.assertEquals(story:getTagCount(), 0)
---     lu.assertEquals(story:getChoice(1):getTag(1), "tag_one")
---     lu.assertEquals(story:getChoice(1):getTag(2), "tag_two")
+    lu.assertEquals(story:getChoiceCount(), 1)
+    lu.assertEquals(story:getTagCount(), 0)
+    lu.assertEquals(story:getChoice(1):getTag(1), "tag_one")
+    lu.assertEquals(story:getChoice(1):getTag(2), "tag_two")
 
---     story:choose(story:getChoice(1))
+    story:choose(story:getChoice(1))
 
---     lu.assertEquals(story:continue(), "one three\n")
---     lu.assertEquals(story:getTagCount(), 2)
---     lu.assertEquals(story:getTag(1), "tag_one")
---     lu.assertEquals(story:getTag(-1), "tag_three")
--- end)
+    lu.assertEquals(story:continue(), "one three\n")
+    lu.assertEquals(story:getTagCount(), 2)
+    lu.assertEquals(story:getTag(1), "tag_one")
+    lu.assertEquals(story:getTag(-1), "tag_three")
+end)
 
 test("should test tags in sequence", function()
     local story = loadStory("should_test_tags_in_sequence")
@@ -91,11 +91,60 @@ test("should test tags", function()
     story:choose("knot")
     lu.assertEquals(story:continue(), "Knot content\n")
     lu.assertEquals(story:getTagCount(), 1)
-    lu.assertEquals(story:getTag(), "knot tag")
+    lu.assertEquals(story:getTag(1), "knot tag")
 
     lu.assertEquals(story:continue(), "")
     lu.assertEquals(story:getTagCount(), 1)
     lu.assertEquals(story:getTag(1), "end of knot tag")
+end)
+
+test("should test external functions", function()
+    local story = loadStory("should_test_external_functions")
+
+    local p = {}
+    story:bindExternalFunction("set_player_name", function(players, id, name)
+        players[id] = { name = name, alive = true }
+    end, true, p)
+    story:bindExternalFunction("is_player_alive", function(players, id)
+        return players[id] and players[id].alive
+    end, true, p)
+    story:bindExternalFunction("get_player_name", function(players, id)
+        id = id:cast(Nomicon.Constants.TYPE_NUMBER)
+        return players[id] and players[id].name or "???"
+    end, false, p)
+    story:bindExternalFunction("kill_player", function(players, id)
+        id = id:cast(Nomicon.Constants.TYPE_NUMBER)
+        if players[id] then
+            players[id].alive = false
+        end
+    end, false, p)
+
+    lu.assertEquals(story:continue(), "So speaketh the GamePlayer 2000 XP: Whomst do you choose to be fighter FIGHTER for ROUND 1?\n")
+        
+    story:continue()
+    lu.assertEquals(story:getChoiceCount(), 2)
+    lu.assertEquals(story:getChoice(1):getText(), "Player Bob-aroni")
+    lu.assertEquals(story:getChoice(1):getIsSelectable(), true)
+    lu.assertEquals(story:getChoice(2):getText(), "Player Bob-inator")
+    lu.assertEquals(story:getChoice(2):getIsSelectable(), true)
+    
+    story:choose(story:getChoice(2))
+    
+    lu.assertEquals(story:continue(), "After playing Rippin' Rockin' Rumble!!!, Bob-inator died!\n")
+    lu.assertEquals(story:continue(), "So speaketh the GamePlayer 2000 XP: Whomst do you choose to be fighter FIGHTER for ROUND 2?\n")
+
+    story:continue()
+    lu.assertEquals(story:getChoiceCount(), 2)
+    lu.assertEquals(story:getChoice(1):getText(), "Player Bob-aroni")
+    lu.assertEquals(story:getChoice(1):getIsSelectable(), true)
+    lu.assertEquals(story:getChoice(2):getText(), "Player Bob-inator")
+    lu.assertEquals(story:getChoice(2):getIsSelectable(), false)
+    
+    story:choose(story:getChoice(1))
+    lu.assertEquals(story:continue(), "After playing Rippin' Rockin' Rumble!!!, Bob-aroni died!\n")
+    lu.assertEquals(story:continue(), "All players are dead! GAME OVER, BRUH!\n")
+
+    lu.assertIsFalse(story:canContinue())
 end)
 
 utility.runTests(tests)

@@ -157,7 +157,8 @@ local COMMANDS = {
             error(string.format("could not cast seed of type '%s' to 'NUMBER'", value:getType()))
         end
 
-        executor:setRandomSeed(value)
+        executor:setRandomSeed(seed)
+        executor:getEvaluationStack():push(nil)
     end,
 
     [PUSH_VISITS] = function(executor)
@@ -167,12 +168,12 @@ local COMMANDS = {
     end,
 
     [PUSH_SHUFFLE_INDEX] = function(executor)
-        local elementCountValue, sequenceCountValue = executor:getEvaluationStack():pop(2)
+        local sequenceCountValue, elementCountValue = executor:getEvaluationStack():pop(2)
 
         local elementCount = elementCountValue:cast(NUMBER)
         if elementCount == nil then
             error(string.format("could not cast element count of type '%s' to 'NUMBER'", elementCountValue:getType()))
-        elseif elementCount <= 1 then
+        elseif elementCount < 1 then
             error("element count must be >= 1")
         end
         elementCount = math.floor(elementCount)
@@ -188,12 +189,12 @@ local COMMANDS = {
 
         local currentRandomSeed = executor:getRandomSeed()
         do
-            local container = executor:getCurrentContainer()
+            local container = executor:getCurrentFlow():getCurrentThread():getCurrentPointer()
             local newRandomSeed = 0
 
-            local path = container:getFullPath()
+            local path = container:getPath():toString()
             for i = 1, #path do
-                local newRandomSeed = newRandomSeed + path:byte(i, i)
+                newRandomSeed = newRandomSeed + path:byte(i, i)
             end
 
             executor:setRandomSeed(loopIndex + newRandomSeed)
@@ -231,7 +232,7 @@ local COMMANDS = {
     end,
 
     [PUSH_LIST_FROM_INT] = function(executor)
-        local value, listNameValue = executor:getEvaluationStack():pop(2)
+        local listNameValue, value = executor:getEvaluationStack():pop(2)
 
         local v = value:cast(NUMBER)
         if v == nil then
@@ -250,7 +251,7 @@ local COMMANDS = {
     end,
 
     [PUSH_LIST_FROM_RANGE] = function(executor)
-        local minValue, maxValue, listValue = executor:getEvaluationStack():pop(3)
+        local listValue, minValue, maxValue = executor:getEvaluationStack():pop(3)
 
         local min = minValue:cast(NUMBER)
         local max = maxValue:cast(NUMBER)

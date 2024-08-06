@@ -7,6 +7,7 @@ local Flow = require(PATH .. "Flow")
 local GlobalVariables = require(PATH .. "GlobalVariables")
 local ListDefinitions = require(PATH .. "ListDefinitions")
 local InstructionBuilder = require(PATH .. "InstructionBuilder")
+local Utility = require(PATH .. "Utility")
 local Value = require(PATH .. "Value")
 
 --- @class Nomicon.Impl.Executor
@@ -58,6 +59,11 @@ function Executor:new(globalVariables)
         self._getSeedFunc = function() return 0 end
         self._randomFunc = function(min, _max) return min end
     end
+end
+
+function Executor:resetCount()
+    Utility.clearTable(self._visitCounts)
+    Utility.clearTable(self._turnCounts)
 end
 
 function Executor:newFlow(name)
@@ -378,6 +384,34 @@ function Executor:divertToPointer(divertType, container, index)
     self._currentFlow:getCurrentThread():divertToPointer(divertType, container, index)
 end
 
+function Executor:hasExternalFunction(name)
+    return self._externalFuncs[name] ~= nil
+end
+
+function Executor:freeExternalFunction(name)
+    if self:hasExternalFunction(name) then
+        self._externalFuncs[name] = nil
+        return true
+    end
+
+    return false
+end
+
+function Executor:bindExternalFunction(name, func, marshal, ...)
+    if self:hasExternalFunction(name) then
+        return false
+    end
+
+    local externalFunc = {
+        args = { ... },
+        n = select("#", ...),
+        func = func,
+        marshal = marshal == nil and false or marshal
+    }
+
+    self._externalFuncs[name] = externalFunc
+end
+
 function Executor:divertToExternal(name, numArgs)
     local externalFunction = self._externalFuncs[name]
     if not externalFunction then
@@ -386,7 +420,8 @@ function Executor:divertToExternal(name, numArgs)
         if container then
             self:divertToPointer(Constants.DIVERT_TO_FUNCTION, container, 1)
         else
-            error(string.format("could not find external function or knot with name '%s' when trying to call an external function", name))
+            self:getEvaluationStack():pop(numArgs)
+            self:getEvaluationStack():push(nil)
         end
 
         return

@@ -3,6 +3,10 @@ local json = require("lib.json")
 local Nomicon = require("nomicon")
 
 local function getIsCI(...)
+    if os.getenv("CI") then
+        return true
+    end
+
     for i = 1, select("#", ...) do
         arg = select(i, ...)
         arg = type(arg) == "string" and arg:lower()

@@ -3,6 +3,7 @@ local Class = require(PATH .. "Class")
 local ListValue = require(PATH .. "ListValue")
 local List = require(PATH .. "List")
 
+--- @class Nomicon.Impl.ListDefinitions
 local ListDefinitions = Class()
 
 function ListDefinitions:new(origins)

@@ -4,6 +4,7 @@ local Constants = require(PATH .. "Constants")
 local List = require(PATH .. "List")
 local Pointer = require(PATH .. "Pointer")
 
+--- @class Nomicon.Impl.Value
 local Value = Class()
 
 local VOID    = Constants.TYPE_VOID
@@ -31,6 +32,19 @@ local TYPES = {
 local CASTS = {}
 for _, valueType in ipairs(TYPES) do
     CASTS[valueType] = {}
+end
+
+-- Cast from void
+CASTS[VOID][NUMBER] = function()
+    return 0
+end
+
+CASTS[VOID][BOOLEAN] = function()
+    return false
+end
+
+CASTS[VOID][STRING] = function()
+    return ""
 end
 
 -- Cast from strings

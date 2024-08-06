@@ -1,7 +1,6 @@
 local PATH = (...) .. "."
 
 --- @class Nomicon
---- @field Story Nomicon.Story
 local Nomicon = {
 	_VERSION = "1.0",
 	_DESCRIPTION = "Runs Ink JSON.",
@@ -382,8 +381,18 @@ local Nomicon = {
 ]]
 }
 
+--- @alias Nomicon.Value Nomicon.Impl.Value | Nomicon.Impl.Divert | Nomicon.Impl.List | Nomicon.Impl.Pointer | number | string | boolean
 
---- @module "omicon.impl.Story"
+--- @module "nomicon.Story"
 Nomicon.Story = require(PATH .. "Story")
+
+--- @module "nomicon.ChoiceList"
+Nomicon.ChoiceList = require(PATH .. "ChoiceList")
+
+--- @module "nomicon.impl.Value"
+Nomicon.Value = require(PATH .. "Impl.Value")
+
+--- @module "nomicon.impl.Constants"
+Nomicon.Constants = require(PATH .. "Impl.Constants")
 
 return Nomicon

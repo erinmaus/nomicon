@@ -8,8 +8,6 @@ local ListDefinitions = require(PATH .. "impl.ListDefinitions")
 local Value = require(PATH .. "impl.Value")
 local InstructionBuilder = require(PATH .. "impl.InstructionBuilder")
 
---- @alias Nomicon.Value Nomicon.Impl.Value | Nomicon.Impl.Divert | Nomicon.Impl.List | Nomicon.Impl.Pointer | number | string | boolean
-
 --- @class Nomicon.Story
 --- @field private _executor Nomicon.Impl.Executor
 --- @field private _book table
@@ -44,6 +42,15 @@ function Story:new(book, defaultGlobalVariables)
     callStack:enter(Constants.DIVERT_START, self._executor:getRootContainer(), 1)
 end
 
+--- Gets the global list definitions.
+--- 
+--- You can use this to interop with list types.
+--- 
+--- @return Nomicon.Impl.ListDefinitions
+function Story:getListDefinitions()
+    return self._executor:getListDefinitions()
+end
+
 function Story:_loadGlobals()
     local globals = self._executor:getRootContainer():getContent(Constants.GLOBAL_VARIABLES_NAMED_CONTENT)
     if globals then
@@ -71,6 +78,7 @@ function Story:_loadGlobalTags()
     end
 
     self._executor:deleteFlow(TEMP_FLOW_NAME)
+    self._executor:resetCount()
 end
 
 --- Configures the RNG for the story.
@@ -111,7 +119,7 @@ end
 --- @param variableName string the name of the global variable
 --- @param value Nomicon.Value the value of the variable
 function Story:setGlobalVariable(variableName, value)
-    self._executor:setGlobalVariable(variableName, Value(nil, value), false)
+    self._executor:setGlobalVariable(variableName, Value(nil, value))
 end
 
 
@@ -146,6 +154,33 @@ function Story:silenceGlobalVariableListener(variableName, func)
     end
 end
 
+--- Returns true if there is an external function with the given name, false otherwise.
+--- 
+--- @param name string name of the external function 
+--- @return boolean exists
+function Story:hasExternalFunction(name)
+    return self._executor:hasExternalFunction(name)
+end
+
+--- Frees an external function with the provided name.
+--- 
+--- @param name string name of the external function to free
+--- @return boolean success returns true if the external function was freed, false otherwise
+function Story:freeExternalFunction(name)
+    return self._executor:freeExternalFunction(name)
+end
+
+--- Binds the external function to a given name. Any extra parameters are passed as the first arguments to func, followed by the arguments from the call in Ink.
+--- 
+--- @param name string name of the external function
+--- @param func function function to call with the 
+--- @param marshal boolean? true if values should be marshalled from Nomicon.Impl.Value, false otherwise; defaults to true if not provided (ie is nil)
+--- @param ... any
+--- @return boolean success returns true if the external function was bound, false otherwise. Will fail if an external fucntion with the name already exists.
+function Story:bindExternalFunction(name, func, marshal, ...)
+    return self._executor:bindExternalFunction(name, func, marshal, ...)
+end
+
 --- Returns whether or not the story can continue.
 ---@return boolean canContinue true if the story can continue, false otherwise
 function Story:canContinue()
@@ -169,7 +204,7 @@ function Story:continue()
 end
 
 --- Returns true if the story has choices, false otherwise.
----@return boolean
+--- @return boolean
 function Story:hasChoices()
     return self:getChoiceCount() >= 1
 end
@@ -178,14 +213,23 @@ end
 --- 
 --- A choice must be made before the story continues.
 --- 
+--- This will return unselectable choices as well. For easier management of just selectable and visible choices.
+--- use ChoiceList.
+--- 
 --- @return integer choiceCount
+--- @see Nomicon.ChoiceList
 function Story:getChoiceCount()
     return self._executor:getChoiceCount()
 end
 
 --- Returns the choice at the specific index.
+---
+--- This will return unselectable choices as well. For easier management of just selectable and visible choices.
+--- use ChoiceList.
+--- 
 --- @param index number the index of the choice; if negative, will wrap around from end (so -1 will return the last choice, while 1 returns the first)
 --- @return Nomicon.Impl.Choice choice
+--- @see Nomicon.ChoiceList
 function Story:getChoice(index)
     return self._executor:getChoice(index)
 end
@@ -254,7 +298,7 @@ end
 --- 
 --- This will increment the turn count on success.
 --- 
---- @param option Nomicon.Impl.Choice | string the choice or path to a knot
+--- @param option Nomicon.Impl.Choice | string the choice or path to a knot (or container, if you dare...)
 --- @return boolean result true if the choice was successful (ie was valid), false otherwise
 function Story:choose(option)
     local success = self._executor:choose(option)

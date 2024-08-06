@@ -89,8 +89,14 @@ function Flow:stopStringEvaluation()
         error("expected to NOT be in logical evaluation mode")
     end
 
-    local result = self._outputStack:toString(-1)
-    self._outputStack:pop(1)
+    local startIndex = self._outputStack:getCount()
+    while startIndex > 1 and self._outputStack:peek(startIndex - 1):is(Constants.TYPE_STRING) and not self._outputStack:peek(startIndex - 1):getValue():find("\n$") do
+        startIndex = startIndex - 1
+    end
+
+
+    local result = self._outputStack:toString(startIndex, -1)
+    self._outputStack:pop(self._outputStack:getCount() - startIndex + 1)
 
     self._evaluationStack:push(result)
 

@@ -279,7 +279,7 @@ local PERFORM = {
                 return a:getCount() == 0
             end
 
-            return not a
+            return a == 0
         end
 
         return nil
@@ -574,7 +574,7 @@ function NativeFunction:_getCoercedType(stack, numParameters)
         assert(valueType ~= GLUE, "somehow got glue")
 
         if valueType == VOID then
-            error("got 'void' value! function without return value?")
+            valueType = BOOLEAN
         end
 
         local priority = TYPE_PRIORITY[valueType]

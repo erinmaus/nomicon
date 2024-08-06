@@ -1,3 +1,4 @@
+--- @enum (key) Nomicon.Impl.Constants
 local Constants = {
     TYPE_VOID    = "void",
     TYPE_STRING  = "string",
@@ -113,20 +114,4 @@ local Constants = {
     GLOBAL_VARIABLES_NAMED_CONTENT         = "global decl",
 }
 
-local function __index(_self, key)
-    local result = Constants[key]
-    if result == nil then
-        error(string.format("constant with name '%s' not found", tostring(key)))
-    end
-
-    return result
-end
-
-local function __newindex(_self, _key, _value)
-    error("Constants are read-only")
-end
-
-return setmetatable({}, {
-    __index = __index,
-    __newindex = __newindex
-})
+return Constants

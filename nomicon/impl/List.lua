@@ -3,12 +3,23 @@ local Class = require(PATH .. "Class")
 local Constants = require(PATH .. "Constants")
 local ListValue = require(PATH .. "ListValue")
 
+--- @class Nomicon.Impl.List represents an Ink list (in other places this would be called a set)
+--- @overload fun(definitions: Nomicon.Impl.ListDefinitions, values: Nomicon.Impl.ListValue[], lists?: table): Nomicon.Impl.List
 local List = Class()
 
 local function sortValueFunc(a, b)
     return a:getValue() < b:getValue()
 end
 
+--- Internal. Constructs a list.
+--- 
+--- This should be done via ListDefinitions.
+--- 
+--- @param definitions Nomicon.Impl.ListDefinitions the list definitions from the story
+--- @param values Nomicon.Impl.ListValue[] the array of values that this list has
+--- @param lists table (internal) a cached list of lists this set belongs to
+---
+--- @see Nomicon.Impl.ListDefinitions
 function List:new(definitions, values, lists)
     self._definitions = definitions
     self._values = values
@@ -31,26 +42,62 @@ function List:new(definitions, values, lists)
     end
 end
 
+--- Returns the minimum list value of this list.
+--- @return Nomicon.Impl.ListValue | nil
 function List:getMinValue()
     return self._values[1]
 end
 
+--- Returns the maximum list value of this list.
+--- @return Nomicon.Impl.ListValue | nil
 function List:getMaxValue()
     return self._values[#self._values]
 end
 
+--- Returns an ordered iterator over the list values.
+--- @return fun(table: Nomicon.Impl.ListValue[], i?: integer):(integer,Nomicon.Impl.ListValue), Nomicon.Impl.ListValue[], integer
 function List:values()
     return ipairs(self._values)
 end
 
+--- Gets a value by index.
+--- @param index integer index into the list; can be negative to wrap around to the last item
+--- @return Nomicon.Impl.ListValue | nil listValue the list value at the index or nil if index is out of bounds
 function List:getValueByIndex(index)
+    if index < 0 then
+        index = index + #self._values + 1
+    end
+
     return self._values[index]
 end
 
+--- Returns the number of list item values in the list
+--- @return integer
 function List:getCount()
     return #self._values
 end
 
+--- Combines two lists. Returns a third list which is the union of this list and otherList.
+--- @param otherList Nomicon.Impl.List the list to combine with
+--- @return Nomicon.Impl.List list union of this list and the other list
+function List:add(otherList)
+    local values = {}
+    for _, value in ipairs(self._values) do
+        table.insert(values, value)
+    end
+
+    for _, value in pairs(otherList._values) do
+        if not self:hasValue(value) then
+            table.insert(values, value)
+        end
+    end
+
+    return List(self._definitions, values)
+end
+
+--- Returns true if the list has the provided value, false otherwise.
+--- @param value Nomicon.Impl.ListValue
+--- @return boolean
 function List:hasValue(value)
     if type(value) == "number" then
         for _, v in ipairs(self._values) do
@@ -66,7 +113,7 @@ function List:hasValue(value)
         end
     elseif Class.isDerived(Class.getType(value), ListValue) then
         for _, v in ipairs(self._values) do
-            if self._values:getName() == value:getName() then
+            if v:getName() == value:getName() then
                 return true
             end
         end
@@ -75,6 +122,9 @@ function List:hasValue(value)
     return false
 end
 
+--- Returns true if this list contains the other list.
+--- @param other Nomicon.Impl.List the other list to compare against
+--- @return boolean
 function List:contains(other)
     for _, value in self:values() do
         if not other:hasValue(value) then
@@ -85,6 +135,9 @@ function List:contains(other)
     return true
 end
 
+--- Returns the intersection of this list and the other list.
+--- @param other Nomicon.Impl.List the other list to intersect against
+--- @return Nomicon.Impl.List
 function List:intersect(other)
     local values = {}
 
@@ -97,6 +150,8 @@ function List:intersect(other)
     return List(self._definitions, values)
 end
 
+--- Returns a list that contains *all* the possible values.
+--- @return Nomicon.Impl.List
 function List:all()
     local values = {}
 
@@ -109,6 +164,11 @@ function List:all()
     return List(self._definitions, values, self._lists)
 end
 
+--- Returns the inversion of this list.
+--- 
+--- Any possible value this lsit has, the returned list will not and any possible value this list does not have, the returned list will.
+--- 
+--- @return Nomicon.Impl.List
 function List:invert()
     local values = {}
 
@@ -123,6 +183,13 @@ function List:invert()
     return List(self._definitions, values, self._lists)
 end
 
+--- Returns the list values between min and max inclusive that are present in this list.
+--- 
+--- If min is a list, its min value will be used.
+--- 
+--- @param min Nomicon.Impl.List | Nomicon.Impl.ListValue | number the minimum list, list value, or list value as a number
+--- @param max Nomicon.Impl.List | Nomicon.Impl.ListValue | number the maximum list, list value, or list value as a number
+--- @return Nomicon.Impl.List
 function List:range(min, max)
     if self:getCount() == 0 then
         return List(self._definitions, {}, self._values)
@@ -156,6 +223,9 @@ function List:range(min, max)
     return List(self._definitions, values, self._lists)
 end
 
+--- Returns true if this list has every value in the other list and vice versa, false otherwise.
+--- @param other Nomicon.Impl.List the list to compare against
+--- @return boolean
 function List:equal(other)
     if self:getCount() ~= other:getCount() then
         return false
@@ -170,6 +240,12 @@ function List:equal(other)
     return true
 end
 
+--- Returns true if this list is less than the other.
+--- 
+--- That is, this list's minimum value is less than the other list's maximum value.
+--- 
+--- @param other Nomicon.Impl.List
+--- @return boolean
 function List:less(other)
     local selfMinValue = self:getMinValue()
     selfMinValue = selfMinValue and selfMinValue:getValue() or 0
@@ -180,6 +256,12 @@ function List:less(other)
     return selfMinValue < otherMaxValue
 end
 
+--- Returns true if this list is less than or equal to the other
+--- 
+--- A list is less than or equal to another if the count of items is the same in both lists and
+--- the left-side (self) list's minimum value is less than the right-side (other) list's maximum value.
+--- @param other Nomicon.Impl.List
+--- @return boolean
 function List:lessThanOrEquals(other)
     local selfMinValue = self:getMinValue()
     selfMinValue = selfMinValue and selfMinValue:getValue() or 0
@@ -190,6 +272,9 @@ function List:lessThanOrEquals(other)
     return self:getCount() == other:getCount() and selfMinValue <= otherMaxValue
 end
 
+--- Returns true if this list is greater than the other.
+--- 
+--- That is, this list's maximum value is greater than the other list's minimum value.
 function List:greater(other)
     local selfMinValue = self:getMinValue()
     selfMinValue = selfMinValue and selfMinValue:getValue() or 0
@@ -200,6 +285,12 @@ function List:greater(other)
     return selfMinValue > otherMaxValue
 end
 
+--- Returns true if this list is greater than or equal to the other.
+---
+--- A list is greater than or equal to another if the count of items is the same in both lists and
+--- the left-side (self) list's maximum value is greater than the right-side (other) list's minimum value.
+--- @param other Nomicon.Impl.List
+--- @return boolean
 function List:greaterThanOrEquals(other)
     local selfMinValue = self:getMinValue()
     selfMinValue = selfMinValue and selfMinValue:getValue() or 0
@@ -210,6 +301,9 @@ function List:greaterThanOrEquals(other)
     return self:getCount() == other:getCount() and selfMinValue >= otherMaxValue
 end
 
+--- Pushes this list to the output or evaluation stacks depending on the expression evaluation mode.
+--- 
+--- @param executor  Nomicon.Impl.Executor
 function List:call(executor)
     if executor:getIsInExpressionEvaluation() then
         executor:getEvaluationStack():push(self)
@@ -218,6 +312,8 @@ function List:call(executor)
     end
 end
 
+--- Returns true if the instruction (object) is a list.
+--- @return boolean
 function List.isList(instruction)
     if type(instruction) ~= "table" then
         return false
