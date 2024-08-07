@@ -60,8 +60,7 @@ end
 CASTS[NUMBER][STRING] = function(value)
     local isFloat = math.abs(value) - math.floor(math.abs(value)) > 0
     if isFloat then
-        local long = string.format("%f", value)
-        local digits = #long:match("^(%d+)%.") + 7
+        local digits = math.floor(math.log(value, 10) + 1) + 7
         return string.format(string.format("%%.%dg", digits), value)
     end
 
@@ -88,7 +87,7 @@ end
 
 -- Cast from lists
 CASTS[LIST][BOOLEAN] = function(value)
-    return next(value) ~= nil
+    return value:empty() == false
 end
 
 CASTS[LIST][NUMBER] = function(value)
@@ -205,6 +204,23 @@ function Value:cast(valueType)
     end
 
     return nil
+end
+
+function Value:assign(other)
+    local otherType = Class.getType(other)
+    if self._type == LIST then
+        if Class.isDerived(otherType, List) then
+            self._value = self._value:assign(other)
+        elseif Class.isDerived(otherType, Value) and other._type == LIST then
+            self._value = self._value:assign(other._value)
+        else
+            self:copyFrom(other)
+        end
+    else
+        self:copyFrom(other)
+    end
+
+    return self
 end
 
 function Value:copy(other)

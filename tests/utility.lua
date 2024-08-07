@@ -43,15 +43,18 @@ local function collectTests(path, pattern)
                     local lineNumber = 0
                     local choices
 
+                    local choicesRemaining = 0
                     for line in love.filesystem.lines(choicesFilename) do
                         lineNumber = lineNumber + 1
-                        if line:match("^(%d+)$") then
+                        if line:match("^(%d+)$") and choicesRemaining == 0 then
                             if choices then
                                 table.insert(test.choicePoints, choices)
                             end
 
-                            choices = { n = tonumber(line) }
+                            choicesRemaining = tonumber(line) or 0
+                            choices = { n = choicesRemaining }
                         elseif choices then
+                            choicesRemaining = choicesRemaining - 1
                             table.insert(choices, line)
                         else
                             error(string.format("malformed choices for test '%s' line %d", testName, lineNumber))

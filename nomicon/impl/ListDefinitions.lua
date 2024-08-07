@@ -24,6 +24,7 @@ function ListDefinitions:new(origins)
             else
                 result.valuesByValue[value] = v
             end
+            table.insert(result.values, v)
 
             if self._values[valueName] then
                 table.insert(self._values[valueName], v)
@@ -216,7 +217,7 @@ function ListDefinitions:tryGetValue(a, b)
         elseif b ~=  nil then
             local origin = self._origins[a]
             if origin then
-                return origin.valuesByName[b]
+                return origin.valuesByName[b] or origin.valuesByValue[b]
             end
         end
     end
@@ -261,9 +262,9 @@ function ListDefinitions:getValue(a, b)
         error(string.format("list '%s' not found", origin))
     end
 
-    local value = origin.valuesByName[b]
+    local value = origin.valuesByName[b] or origin.valuesByValue[b]
     if not value then
-        error(string.format("list '%s' does not have list value with name '%s'", a, b))
+        error(string.format("list '%s' does not have list value with name or value '%s'", a, tostring(b)))
     end
 
     return value

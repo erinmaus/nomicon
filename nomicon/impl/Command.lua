@@ -73,7 +73,7 @@ local COMMANDS = {
     end,
 
     [RETURN_FUNCTION] = function(executor)
-        executor:getCurrentFlow():trimWhitespace()
+        executor:getCurrentFlow():trimWhitespace(executor:getCallStack():getFrame():getOutputStackPointer())
         executor:getCallStack():leave(Constants.DIVERT_TO_FUNCTION)
     end,
 
@@ -203,7 +203,7 @@ local COMMANDS = {
 
         local values = {}
         for i = 1, elementCount do
-            table.insert(values, i)
+            table.insert(values, i - 1)
         end
 
         local value

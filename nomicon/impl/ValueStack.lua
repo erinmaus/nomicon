@@ -125,7 +125,7 @@ function ValueStack:toString(startIndex, stopIndex)
 
     local result = table.concat(self._string, "", startIndex, stopIndex)
     if hasGlue then
-        result = result:gsub("([%s\n\r]*\127[%s\n\r]*)", "")
+        result = result:gsub("([\n\r]*\127[\n\r]*)", "")
     end
 
     return result
@@ -247,7 +247,7 @@ function ValueStack:_pushString(value)
         value = value:cast(Constants.TYPE_STRING)
     end
 
-    if (self:getCount() == 0 or self:toString(-1, -1):find("\n$")) and value:match("^[%s\n\r]*$") then
+    if (self:getCount() == 0 or self:toString(-1, -1):find("\n$")) and value:match("^[%s\n\r]+$") then
         return Value.VOID
     end
     
@@ -261,7 +261,7 @@ function ValueStack:_pushString(value)
         return self:_push(value)
     end
 
-    if value:match("^[%s\n\r]*$") then
+    if self:getCount() >= 1 and self:toString(-1, -1):find("[%s\n\r]$") and value:match("^[%s\n\r]+$") then
         return Value.VOID
     end
     

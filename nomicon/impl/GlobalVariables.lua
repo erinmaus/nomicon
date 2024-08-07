@@ -18,7 +18,6 @@ local function __newindex(self, key, value)
     local listeners = metatable._onChange[key] or metatable._onChange["*"]
     if listeners ~= nil then
         local previousValue = metatable._variables[key] or (metatable._parent and metatable._parent:get(key)) or Value.VOID
-
         for _, listener in ipairs(listeners) do
             if listeners == metatable._onChange[GlobalVariables.ANY] then
                 listener.args[listener.n + 1] = key
@@ -34,10 +33,17 @@ local function __newindex(self, key, value)
     end
 
     local variable = metatable._variables[key]
-    if variable and Class.isDerived(Class.getType(value), Value) then
-        value:copy(variable)
-    else
-        variable = Value(nil, value)
+    do
+        local parentVariable = metatable._parent and metatable._parent:get(key)
+        if not variable and parentVariable then
+            variable = Value(nil, parentVariable)
+        end
+
+        if variable then
+            variable:assign(value)
+        else
+            variable = Value(nil, value)
+        end
     end
 
     metatable._variables[key] = variable

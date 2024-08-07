@@ -13,10 +13,17 @@ end
 local function __newindex(self, key, value)
     local metatable = getmetatable(self)
     local variable = metatable._variables[key]
-    if not variable then
-        variable = Value(nil, value)
-    else
-        value:copy(variable)
+    do
+        local parentVariable = metatable._parent and metatable._parent:get(key)
+        if not variable and parentVariable then
+            variable = Value(nil, parentVariable)
+        end
+
+        if variable then
+            variable:assign(value)
+        else
+            variable = Value(nil, value)
+        end
     end
 
     metatable._variables[key] = variable

@@ -4,12 +4,9 @@ local Constants = require(PATH .. "Constants")
 local ListValue = require(PATH .. "ListValue")
 
 --- @class Nomicon.Impl.List represents an Ink list (in other places this would be called a set)
+--- @field _values Nomicon.Impl.ListValue[]
 --- @overload fun(definitions: Nomicon.Impl.ListDefinitions, values: Nomicon.Impl.ListValue[], lists?: table): Nomicon.Impl.List
 local List = Class()
-
-local function sortValueFunc(a, b)
-    return a:getValue() < b:getValue()
-end
 
 --- Internal. Constructs a list.
 --- 
@@ -22,8 +19,11 @@ end
 --- @see Nomicon.Impl.ListDefinitions
 function List:new(definitions, values, lists)
     self._definitions = definitions
-    self._values = values
-    table.sort(self._values, sortValueFunc)
+    self._values = {}
+    for i, value in ipairs(values) do
+        table.insert(self._values, ListValue.from(value, i))
+    end
+    ListValue.sort(self._values)
 
     if not lists then
         self._lists = {}
@@ -48,8 +48,38 @@ function List:new(definitions, values, lists)
     self._string = table.concat(s, ", ")
 end
 
+--- Returns true if this list is empty, false otherwise.
+--- @return boolean
 function List:empty()
     return #self._values == 0
+end
+
+--- Increments this list by an integer.
+--- 
+--- All list values will be incremented by 'value' and converted into the correct ListValue.
+--- If a list value, when incremented by 'value', does not produce a valid value, then
+--- it will not be present in the new list.
+--- 
+--- @param value integer
+--- @return Nomicon.Impl.List
+function List:increment(value)
+    local values = {}
+    for _, listValue in ipairs(self._values) do
+        local newListValue = listValue:getValue() + value
+        local nextValue = self._definitions:tryGetValue(listValue:getListName(), newListValue)
+        if nextValue then
+            table.insert(values, nextValue)
+        end
+    end
+
+    return List(self._definitions, values, self._lists)
+end
+
+--- Decrements this list by a value.
+--- 
+--- @param value integer
+function List:decrement(value)
+    return self:increment(-value)
 end
 
 --- Returns the sorted list as a string.
@@ -98,7 +128,7 @@ function List:getCount()
 end
 
 function List:assign(otherList)
-    local lists
+    local lists = {}
     for index, listName in ipairs(self._lists) do
         lists[index] = listName
         lists[listName] = index
@@ -119,17 +149,33 @@ end
 --- @return Nomicon.Impl.List list union of this list and the other list
 function List:add(otherList)
     local values = {}
-    for _, value in ipairs(self._values) do
+
+    for _, value in pairs(otherList._values) do
         table.insert(values, value)
     end
 
-    for _, value in pairs(otherList._values) do
-        if not self:hasValue(value) then
+    for _, value in ipairs(self._values) do
+        if not otherList:hasValue(value) then
             table.insert(values, value)
         end
     end
 
     return List(self._definitions, values)
+end
+
+--- Removes the items in the other list from this list.
+--- 
+--- @param otherList Nomicon.Impl.List the list of values to remove
+--- @return Nomicon.Impl.List list the new list with the removed values
+function List:remove(otherList)
+    local values = {}
+    for _, value in pairs(self._values) do
+        if not otherList:hasValue(value) then
+            table.insert(values, value)
+        end
+    end
+
+    return List(self._definitions, values, self._lists)
 end
 
 --- Returns true if the list has the provided value, false otherwise.
@@ -197,7 +243,7 @@ function List:all()
     local values = {}
 
     for _, listName in ipairs(self._lists) do
-        for _, value in self._definitions:getListValues(listName) do
+        for _, value in self._definitions:tryGetListValues(listName) do
             table.insert(values, value)
         end
     end
@@ -214,7 +260,7 @@ function List:invert()
     local values = {}
 
     for _, listName in ipairs(self._lists) do
-        for _, value in self._definitions:getListValues(listName) do
+        for _, value in self._definitions:tryGetListValues(listName) do
             if not self:hasValue(value) then
                 table.insert(values, value)
             end

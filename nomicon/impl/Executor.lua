@@ -612,7 +612,7 @@ function Executor:_advancePointer(thread)
         local frame = callStack:getFrameCount() > 1 and callStack:getFrame()
         if frame and (frame:canLeave(Constants.DIVERT_TO_FUNCTION) or frame:canLeave(Constants.DIVERT_TO_TUNNEL)) then
             if frame:getType() == Constants.DIVERT_TO_FUNCTION then
-                self._currentFlow:trimWhitespace()
+                self._currentFlow:trimWhitespace(1)
             end
 
             thread:getCallStack():leave(frame:getType())

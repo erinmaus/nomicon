@@ -260,29 +260,60 @@ function Flow:step()
     end
 end
 
-function Flow:trimWhitespace()
+function Flow:trimWhitespace(stackPointer)
+    stackPointer = stackPointer or 0
+
     for i = self._outputStack:getCount(), 1, -1 do
-        if self._outputStack:isWhitespace(i, i) then
-            self._outputStack:remove(i)
+        if not self._outputStack:isWhitespace(i, i) and not self._outputStack:peek(i):is(Constants.TYPE_GLUE) then
+            break
         end
+
+        if i <= stackPointer then
+            break
+        end
+
+        self._outputStack:remove(i)
     end
 end
 
-function Flow:_findBreak()
-    local pendingStart = 1
-    local pendingEnd = pendingStart
-    while pendingEnd > self:getCurrentStringEvaluationPointer() and pendingEnd <= self._outputStack:getCount() and not self._outputStack:toString(pendingEnd, pendingEnd):match("\n$") do
-        pendingEnd = pendingEnd + 1
+function Flow:_findBreak(index)
+    local pendingStart = index or 1
+    local pendingStop = pendingStart
+
+    while pendingStop < self._outputStack:getCount() do
+        if not self._outputStack:isWhitespace(pendingStop, pendingStop) then
+            break
+        end
+
+        pendingStop = pendingStop + 1
     end
 
-    return pendingStart, pendingEnd
+
+    local hasGlue = false
+    while pendingStop < self._outputStack:getCount() do
+        if hasGlue and not self._outputStack:isWhitespace(pendingStop, pendingStop) then
+            hasGlue = false
+        end
+
+        if not hasGlue and self._outputStack:toString(pendingStop, pendingStop):find("\n$") then
+            break
+        end
+
+        if self._outputStack:peek(pendingStop):is(Constants.TYPE_GLUE) then
+            hasGlue = true
+        end
+
+        pendingStop = pendingStop + 1
+    end
+
+    return pendingStart, pendingStop
 end
 
 --- Returns true if the flow is still waiting on valid output.
 --- 
 --- Generally, when the output stack looks like this:
 --- 
---- (current_text*)(whitespace_with_newline*)(pending_text*)
+--- (pending_text*)(whitespace_with_newline*)(next_text*)
 --- 
 --- Then the story should break and return current_text.
 --- 
@@ -302,10 +333,21 @@ function Flow:shouldContinue()
         return true
     end
 
-    local _, currentStop = self:_findBreak()
-    if currentStop > self._outputStack:getCount() then
+    local _, pendingStop = self:_findBreak()
+    local _, nextStop = self:_findBreak(pendingStop)
+
+    if nextStop <= self._outputStack:getCount() and not (nextStop > pendingStop and self._outputStack:toString(nextStop, nextStop):find("\n$")) then
         return true
     end
+
+    -- local _, currentStop, nextStart, nextStop = self:_findBreak()
+    -- if currentStop > self._outputStack:getCount() then
+    --     return true
+    -- end
+
+    -- if nextStop > self._outputStack:getCount() then
+    --     return true
+    -- end
     
     return false
 end
@@ -322,7 +364,7 @@ function Flow:continue()
     end
 
     local currentStart, currentStop = self:_findBreak()
-    if self:getChoiceCount() >= 1 or self._outputStack:getCount() == 0 then
+    if self._outputStack:getCount() == 0 then
         self._currentText = ""
     else
         local text = self._outputStack:toString(currentStart, currentStop)

@@ -411,10 +411,10 @@ local PERFORM = {
             end
         elseif coercedType == STRING then
             local a = leftValue:cast(STRING)
-            local b = leftValue:cast(STRING)
+            local b = rightValue:cast(STRING)
 
             if a ~= nil and b ~= nil then
-                return a:find(b, 1, true)
+                return a:find(b, 1, true) ~= nil
             end
         end
     end,
@@ -429,10 +429,10 @@ local PERFORM = {
             end
         elseif coercedType == STRING then
             local a = leftValue:cast(STRING)
-            local b = leftValue:cast(STRING)
+            local b = rightValue:cast(STRING)
 
             if a ~= nil and b ~= nil then
-                return not a:find(b, 1, true)
+                return not a:find(b, 1, true) == nil
             end
         end
     end,

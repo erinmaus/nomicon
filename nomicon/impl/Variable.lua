@@ -129,7 +129,10 @@ function Variable:call(executor)
                 end
             end
         else
-            local currentValue = executor:getTemporaryVariable(self._name) or executor:getGlobalVariable(self._name)
+            local temporaryVariable = executor:getTemporaryVariable(self._name)
+            local globalVariable = executor:getTemporaryVariable(self._name)
+            local currentValue = temporaryVariable or globalVariable
+
             if currentValue and currentValue:is(Constants.TYPE_POINTER) then
                 local currentPointer = currentValue:getValue()
                 while currentPointer do
@@ -148,6 +151,16 @@ function Variable:call(executor)
                     currentPointer = nextPointer:cast(Constants.TYPE_POINTER)
                 end
             end
+
+            if not (name and contextIndex) then
+                if temporaryVariable then
+                    name = self._name
+                    contextIndex = -1
+                elseif globalVariable then
+                    name = self._name
+                    contextIndex = 0
+                end
+            end
         end
 
         if not (name and contextIndex) then
@@ -158,13 +171,6 @@ function Variable:call(executor)
                 contextIndex = -1
             else
                 error(string.format("unhandled variable assignment type '%s'", self._type))
-            end
-        end
-
-        if value:is(Constants.TYPE_LIST) then
-            local currentValue = contextIndex == 0 and executor:getGlobalVariable(name) or executor:getTemporaryVariable(name)
-            if currentValue and currentValue:is(Constants.TYPE_LIST) then
-                value = Value(nil, currentValue:getValue():assign(value))
             end
         end
 
