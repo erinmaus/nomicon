@@ -249,7 +249,7 @@ function Executor:getTurnCountForContainer(container)
 
     local pathName = container:getPath():toString()
     local turnCount = self._turnCounts[pathName]
-    return turnCount and turnCount - self._currentTurnCount or -1
+    return turnCount and (self._currentTurnCount - turnCount) or -1
 end
 
 function Executor:getVisitCountForContainer(container)
@@ -347,6 +347,17 @@ function Executor:getSelectableChoiceCount()
     end
 
     return count
+end
+
+function Executor:getDefaultChoice()
+    for i = 1, self:getChoiceCount() do
+        local choice = self:getChoice(i)
+        if choice:getIsSelectable() and choice:getChoicePoint() and choice:getChoicePoint():getIsInvisibleDefault() then
+            return choice
+        end
+    end
+
+    return nil
 end
 
 function Executor:getChoice(index)
@@ -531,10 +542,6 @@ function Executor:_updateVisits(thread)
         end
     end
 
-    if previousContainer == currentContainer then
-        return
-    end
-
     local index
     if not previousContainer then
         index = 2
@@ -555,6 +562,8 @@ function Executor:_updateVisits(thread)
         local isStart
         if i == path:getComponentCount() and type(name) == "string" then
             isStart = true
+        elseif child == currentContainer then
+            isStart = currentIndex == 1
         else
             isStart = name == 1
         end
@@ -607,7 +616,7 @@ function Executor:_advancePointer(thread)
     end
 
     thread:getCallStack():jump(container, index)
-    if not (container and index) and self:getSelectableChoiceCount() == 0 then
+    if not (container and index) and self:getSelectableChoiceCount() == 0 and not self:getDefaultChoice() then
         local callStack = thread:getCallStack()
         local frame = callStack:getFrameCount() > 1 and callStack:getFrame()
         if frame and (frame:canLeave(Constants.DIVERT_TO_FUNCTION) or frame:canLeave(Constants.DIVERT_TO_TUNNEL)) then
@@ -644,13 +653,13 @@ function Executor:_advance()
         didAdvance = self:_advancePointer()
     until didAdvance or not self._currentFlow:getCurrentThread():getCurrentPointer()
 
+    if not didAdvance then
+        self:_tryDefaultChoice()
+    end
+
     while not self._currentFlow:getCurrentThread():getCurrentPointer() and self._currentFlow:canPop() do
         self._currentFlow:pop()
         didAdvance = didAdvance or self:_advancePointer()
-    end
-
-    if not didAdvance then
-        self:_tryDefaultChoice()
     end
 end
 
@@ -664,23 +673,11 @@ function Executor:_tryDefaultChoice()
         return
     end
 
-    local invisibleChoices = 0
-    local visibleChoices = 0
-    local firstInvisibleChoice
-    for i = 1, self:getChoiceCount() do
-        local choice = self:getChoice(i)
-        if choice:getIsSelectable() then
-            if choice:getChoicePoint():getIsInvisibleDefault() then
-                firstInvisibleChoice = firstInvisibleChoice or choice
-                invisibleChoices = invisibleChoices + 1
-            else
-                visibleChoices = visibleChoices + 1
-            end
-        end
-    end
+    local visibleChoices = self:getSelectableChoiceCount()
+    local defaultChoice = self:getDefaultChoice()
 
-    if visibleChoices == 0 and invisibleChoices >= 1 and firstInvisibleChoice then
-        self:_chooseChoice(firstInvisibleChoice)
+    if visibleChoices == 0 and defaultChoice then
+        self:_chooseChoice(defaultChoice)
     end
 end
 
@@ -703,8 +700,6 @@ function Executor:continue()
         if not self._currentFlow:shouldContinue() then
             break
         end
-
-        self._currentFlow:step()
     end
 
     self._currentFlow:continue()

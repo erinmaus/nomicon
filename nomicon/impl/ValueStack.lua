@@ -34,8 +34,10 @@ function ValueStack:copy(other)
 
     for i = 1, self._top do
         local selfValue = self._stack[i]
+        other._executor = self._executor
         other._stack[i] = selfValue:copy(other._stack[i])
         other._string[i] = self._string[i]
+        other._enableTrimming = self._enableTrimming
     end
     other._top = self._top
 
@@ -52,6 +54,16 @@ function ValueStack:_toAbsoluteIndex(index)
         index = self._top + index + 1
     end
     return index
+end
+
+function ValueStack:set(index, value)
+    index = self:_toAbsoluteIndex(index)
+    if not (index >= 1 and index <= self._top) then
+        error(string.format("cannot set value at index (%d): out of bounds", index))
+    end
+
+    self._stack[self._top]:copyFrom(value)
+    self._string[self._top] = self._stack[self._top]:cast(Constants.TYPE_STRING) or ""
 end
 
 function ValueStack:peek(index)
@@ -86,7 +98,8 @@ function ValueStack:isWhitespace(startIndex, stopIndex)
 
     for i = startIndex, stopIndex do
         local text = self._string[i]
-        if not text:match("^([%s\n\r\127]*)$") then
+        local value = self._stack[i]
+        if not text:match("^([%s\n\r\127]*)$") and not value:is(Constants.TYPE_TAG) then
             return false
         end
     end
@@ -230,12 +243,23 @@ end
 function ValueStack:_trimWhitespace()
     local stringEvaluationPointer = self._executor:getCurrentFlow():getCurrentStringEvaluationPointer()
     for i = self:getCount(), stringEvaluationPointer + 1, -1 do
-        if self:isWhitespace(i, i) then
+        if self:isWhitespace(i, i) and not self:peek(i):is(Constants.TYPE_TAG) then
             self:remove(i)
         end
     end
 end
 
+function ValueStack:_valueBefore(index)
+    index = self:_toAbsoluteIndex(index)
+    for i = index, 1, -1 do
+        local value = self:peek(i)
+        if not value:is(Constants.TYPE_TAG) then
+            return i, i
+        end
+    end
+
+    return 1, 1
+end
 
 function ValueStack:_pushString(value)
     if Class.isDerived(Class.getType(value), Value) then
@@ -247,7 +271,7 @@ function ValueStack:_pushString(value)
         value = value:cast(Constants.TYPE_STRING)
     end
 
-    if (self:getCount() == 0 or self:toString(-1, -1):find("\n$")) and value:match("^[%s\n\r]+$") then
+    if (self:getCount() == 0 or self:toString(self:_valueBefore(-1)):find("\n$")) and value:match("^[%s\n\r]+$") then
         return Value.VOID
     end
     
@@ -261,7 +285,7 @@ function ValueStack:_pushString(value)
         return self:_push(value)
     end
 
-    if self:getCount() >= 1 and self:toString(-1, -1):find("[%s\n\r]$") and value:match("^[%s\n\r]+$") then
+    if self:getCount() >= 1 and self:toString(self:_valueBefore(-1)):find("[%s\n\r]$") and value:match("^[%s\n\r]+$") then
         return Value.VOID
     end
     
@@ -279,7 +303,7 @@ function ValueStack:_push(value)
         selfValue:copyFrom(value)
     end
 
-    local value = selfValue:cast(Constants.TYPE_STRING) or ""
+    local value = (selfValue:is(Constants.TYPE_TAG) and "") or selfValue:cast(Constants.TYPE_STRING) or ""
     assert(type(value) == "string", "cast to string but did not get string back")
 
     if selfValue:getType() ~= Constants.TYPE_GLUE then

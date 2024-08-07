@@ -308,12 +308,8 @@ end
 --- @param option Nomicon.Impl.Choice | string the choice or path to a knot (or container, if you dare...)
 --- @return boolean result true if the choice was successful (ie was valid), false otherwise
 function Story:choose(option)
-    local success = self._executor:choose(option)
-    if success then
-        self._executor:incrementTurnCount()
-    end
-
-    return success
+    self._executor:incrementTurnCount()
+    return self._executor:choose(option)
 end
 
 return Story

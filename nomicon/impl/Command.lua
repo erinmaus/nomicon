@@ -110,7 +110,8 @@ local COMMANDS = {
 
         local container = executor:getContainer(value:cast(DIVERT))
         if container then
-            executor:getEvaluationStack():push(executor:getTurnCountForContainer(container))
+            local turnCount = executor:getTurnCountForContainer(container)
+            executor:getEvaluationStack():push(turnCount)
         else
             executor:getEvaluationStack():push(-1)
         end
