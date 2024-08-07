@@ -443,7 +443,7 @@ local PERFORM = {
             local b = rightValue:cast(LIST)
 
             if a ~= nil and b ~= nil then
-                return not a:intersect(b)
+                return a:intersect(b)
             end
         end
 
@@ -510,7 +510,7 @@ local PERFORM = {
             local a = value:cast(LIST)
             if a ~= nil then
                 local max = a:getMaxValue()
-                return max and max.value
+                return max and max:getValue()
             end
         end
 

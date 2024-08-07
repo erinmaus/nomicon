@@ -122,8 +122,11 @@ local function runTest(test)
                 local success = story:choose(firstChoice)
                 lu.assertEquals(success, true, "must succeed with first choice")
             else
-                local success = Nomicon.ChoiceList(story):getChoice(1):choose()
-                lu.assertEquals(success, true, "must succeed with first choice")
+                local choices = Nomicon.ChoiceList(story)
+                if choices:hasChoices() then
+                    local success = choices:getChoice(1):choose()
+                    lu.assertEquals(success, true, "must succeed with first choice")
+                end
             end
         end
     end

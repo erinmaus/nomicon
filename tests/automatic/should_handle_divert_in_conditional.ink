@@ -1,6 +1,8 @@
+-> intro.top
+
 === intro
 = top
-    { main: -> done }
+    { not main: -> done }
     -> END
 = main
     -> top

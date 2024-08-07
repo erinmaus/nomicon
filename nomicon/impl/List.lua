@@ -40,6 +40,26 @@ function List:new(definitions, values, lists)
     else
         self._lists = lists
     end
+
+    local s = {}
+    for _, value in self:values() do
+        table.insert(s, value:getValueName())
+    end
+    self._string = table.concat(s, ", ")
+end
+
+function List:empty()
+    return #self._values == 0
+end
+
+--- Returns the sorted list as a string.
+--- 
+--- The list: (pizza.onion, pizza.pepper, spaghetti.onion) would thus print as:
+--- 
+--- `onion, pepper, onion`
+--- @return string
+function List:toString()
+    return self._string
 end
 
 --- Returns the minimum list value of this list.
@@ -75,6 +95,23 @@ end
 --- @return integer
 function List:getCount()
     return #self._values
+end
+
+function List:assign(otherList)
+    local lists
+    for index, listName in ipairs(self._lists) do
+        lists[index] = listName
+        lists[listName] = index
+    end
+
+    for _, listName in ipairs(otherList._lists) do
+        if not lists[listName] then
+            table.insert(lists, listName)
+            lists[listName] = #lists
+        end
+    end
+
+    return List(self._definitions, otherList._values, lists)
 end
 
 --- Combines two lists. Returns a third list which is the union of this list and otherList.
@@ -126,8 +163,12 @@ end
 --- @param other Nomicon.Impl.List the other list to compare against
 --- @return boolean
 function List:contains(other)
-    for _, value in self:values() do
-        if not other:hasValue(value) then
+    if self:empty() or other:empty() then
+        return false
+    end
+
+    for _, value in other:values() do
+        if not self:hasValue(value) then
             return false
         end
     end

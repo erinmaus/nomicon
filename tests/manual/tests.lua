@@ -28,6 +28,21 @@ test("should test LIST_RANDOM", function()
     end
 end)
 
+test("should handle knot thread", function()
+    local story = loadStory("should_handle_knot_thread")
+
+    lu.assertEquals(story:continue(), "bla blah\n")
+
+    lu.assertEquals(story:getChoiceCount(), 2)
+    lu.assertEquals(story:getChoice(1):getText(), "option")
+    lu.assertEquals(story:getChoice(2):getText(), "wigwag")
+
+    story:choose(story:getChoice(2))
+
+    lu.assertEquals(story:continue(), "wigwag\n")
+    lu.assertEquals(story:continue(), "THE END\n")
+end)
+
 test("should test tags in choice", function()
     local story = loadStory("should_test_tags_in_choice")
 

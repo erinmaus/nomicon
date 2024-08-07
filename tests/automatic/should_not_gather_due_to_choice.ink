@@ -2,4 +2,4 @@
     - - text
     * * {false} impossible
     * * -> END
-- gather"
+- gather

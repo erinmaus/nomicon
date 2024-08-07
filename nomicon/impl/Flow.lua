@@ -303,7 +303,7 @@ function Flow:shouldContinue()
     end
 
     local _, currentStop = self:_findBreak()
-    if currentStop >= self._outputStack:getCount() then
+    if currentStop > self._outputStack:getCount() then
         return true
     end
     
@@ -322,7 +322,7 @@ function Flow:continue()
     end
 
     local currentStart, currentStop = self:_findBreak()
-    if self._outputStack:getCount() == 0 then
+    if self:getChoiceCount() >= 1 or self._outputStack:getCount() == 0 then
         self._currentText = ""
     else
         local text = self._outputStack:toString(currentStart, currentStop)

@@ -1,6 +1,8 @@
 local PATH = (...):gsub("[^%.]+$", "")
 local Class = require(PATH .. "impl.Class")
 local Container = require(PATH .. "impl.Container")
+
+--- @module "nomicon.impl.Constants"
 local Constants = require(PATH .. "impl.Constants")
 local Executor = require(PATH .. "impl.Executor")
 local GlobalVariables = require(PATH .. "impl.GlobalVariables")
@@ -229,12 +231,12 @@ end
 
 --- Returns the choice at the specific index.
 ---
---- This will return unselectable choices as well. For easier management of just selectable and visible choices.
+--- This will return unselectable choices as well. For easier management of just selectable and visible choices,
 --- use ChoiceList.
 --- 
 --- @param index number the index of the choice; if negative, will wrap around from end (so -1 will return the last choice, while 1 returns the first)
---- @return Nomicon.Impl.Choice choice
---- @see Nomicon.ChoiceList
+--- @return Nomicon.Impl.Choice|nil choice the **implementation** choice, not to be confused with Nomicon.Choice
+--- @see Nomicon.Choice
 function Story:getChoice(index)
     return self._executor:getChoice(index)
 end

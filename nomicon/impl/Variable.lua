@@ -3,6 +3,7 @@ local Class = require(PATH .. "Class")
 local Constants = require(PATH .. "Constants")
 local Pointer = require(PATH .. "Pointer")
 local Value = require(PATH .. "Value")
+local List = require(PATH .. "List")
 
 local Variable = Class()
 
@@ -157,6 +158,13 @@ function Variable:call(executor)
                 contextIndex = -1
             else
                 error(string.format("unhandled variable assignment type '%s'", self._type))
+            end
+        end
+
+        if value:is(Constants.TYPE_LIST) then
+            local currentValue = contextIndex == 0 and executor:getGlobalVariable(name) or executor:getTemporaryVariable(name)
+            if currentValue and currentValue:is(Constants.TYPE_LIST) then
+                value = Value(nil, currentValue:getValue():assign(value))
             end
         end
 

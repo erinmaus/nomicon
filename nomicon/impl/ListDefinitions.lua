@@ -159,7 +159,16 @@ function ListDefinitions:newListFromObject(object)
         table.insert(values, value)
     end
 
-    return List(self, values)
+    local lists 
+    if object.origins then
+        lists = {}
+        for _, origin in ipairs(object.origins) do
+            table.insert(lists, origin)
+            lists[origin] = #lists
+        end
+    end
+
+    return List(self, values, lists)
 end
 
 function ListDefinitions:tryGetListValues(name)
@@ -190,7 +199,7 @@ function ListDefinitions:getListValues(name)
         end
     end
 
-    return self:tryGetList(name)
+    return self:tryGetValue(name)
 end
 
 function ListDefinitions:tryGetValue(a, b)

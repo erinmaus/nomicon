@@ -101,12 +101,7 @@ CASTS[LIST][NUMBER] = function(value)
 end
 
 CASTS[LIST][STRING] = function(value)
-    local maxItem = value:getMaxValue()
-    if not maxItem then
-        return ""
-    end
-
-    return maxItem:getValueName()
+    return value:toString()
 end
 
 -- Cast from glue

@@ -337,6 +337,18 @@ function Executor:getChoiceCount()
     return self._currentFlow:getChoiceCount()
 end
 
+function Executor:getSelectableChoiceCount()
+    local count = 0
+    for i = 1, self:getChoiceCount() do
+        local choice = self:getChoice(i)
+        if choice:getIsSelectable() and choice:getChoicePoint() and not choice:getChoicePoint():getIsInvisibleDefault() then
+            count = count + 1
+        end
+    end
+
+    return count
+end
+
 function Executor:getChoice(index)
     return self._currentFlow:getChoice(index)
 end
@@ -595,7 +607,7 @@ function Executor:_advancePointer(thread)
     end
 
     thread:getCallStack():jump(container, index)
-    if not (container and index) then
+    if not (container and index) and self:getSelectableChoiceCount() == 0 then
         local callStack = thread:getCallStack()
         local frame = callStack:getFrameCount() > 1 and callStack:getFrame()
         if frame and (frame:canLeave(Constants.DIVERT_TO_FUNCTION) or frame:canLeave(Constants.DIVERT_TO_TUNNEL)) then
@@ -617,7 +629,7 @@ function Executor:_execute()
     if not (container and index) then
         return
     end
-    
+
     local instruction = container:getContent(index)
     if instruction then
         instruction:call(self)
