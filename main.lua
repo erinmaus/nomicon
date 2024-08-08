@@ -85,14 +85,19 @@ function love.draw()
         for i = 1, choices:getChoiceCount() do
             if i == currentChoiceIndex then
                 love.graphics.setColor(0, 1, 0, 1)
-                love.graphics.print(">", x - 32, y + font:getHeight() / 2, math.sin(love.timer.getTime() / math.pi) * math.rad(22.5), 1, 1, font:getWidth(">"), font:getHeight() / 2)
-                love.graphics.setColor(0.8, 0.8, 0.8, 1.0)
+                love.graphics.print(">", x - 16, y + font:getHeight() / 2, math.sin(love.timer.getTime()) * math.rad(22.5), 1, 1, font:getWidth(">"), font:getHeight() / 2)
+            else
+                love.graphics.setColor(0.5, 0.5, 0.5, 1.0)
+                love.graphics.print("-", x - 16, y + font:getHeight() / 2, 0, 1, 1, font:getWidth("-"), font:getHeight() / 2)
             end
-
+            love.graphics.setColor(0.8, 0.8, 0.8, 1.0)
+            
+            
             local choice = choices:getChoice(i):getText()
-            love.graphics.print(choice, x, y)
+            love.graphics.printf(choice, x, y, DIALOG_WIDTH, "left")
 
-            y = y + font:getHeight()
+            local _, choiceLines = font:getWrap(choice, DIALOG_WIDTH)
+            y = y + font:getHeight() * #choiceLines
         end
     end
 end
