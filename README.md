@@ -73,7 +73,7 @@ See the API documentation in the source or README for more info.
 
 * `Nomicon.Story:canContinue()`: Returns true if the story can continue; false otherwise.
 
-* `Nomicon.Story:continue(yield = true)`: Continues the story. Returns the current line of text and the tags associated with the that line of text. If `yield` is true, then the story will yield nothing after each "step" (execution cycle: get next instruction, advance pointer, check if done). Until this method returns, any mutations on `Nomicon.Story` are not allowed. This includes, but is not necessarily limited to:
+* `Nomicon.Story:continue(yield = false)`: Continues the story. Returns the current line of text and the tags associated with the that line of text. If `yield` is true, then the story will yield nothing after each "step" (execution cycle: get next instruction, advance pointer, check if done). Until this method returns, any mutations on `Nomicon.Story` are not allowed. This includes, but is not necessarily limited to:
   * Setting a global variable or listening for a global variable
   * Binding an external function
   * 
@@ -94,7 +94,7 @@ See the API documentation in the source or README for more info.
 
 * `Nomicon.Story:choose(option, ...)`: Increments the turn count and switches to the knot/container at `option` (if the argument is a string) or chooses a specific choice (if the argument is a `Nomicon.impl.Choice`). Any extra arguments are passed are passed onto the stack to the knot.
 
-* `Nomicon.Story:call(func, marshal = true, ...)`: Calls `func` with `...` args. Returns the content, tags, and any return values (will probably be one, but who knows in the future...). The call is executed in a temporary flow independent of the current flow for safety. If `func` errors, this flow will safely be disposed of and then the error will bubble up. Values will be marshalled from `Nomicon.impl.Value` if `marshal` is true; if not, they will be returned untouched. Keep in mind these unmarshalled values are only valid until the next method that modifies the story state in any way - so clone them if you want to keep them around!
+* `Nomicon.Story:call(func, marshal = true, yield = false, ...)`: Calls `func` with `...` args. Returns the content, tags, and any return values (will probably be one, but who knows in the future...). The call is executed in a temporary flow independent of the current flow for safety. If `func` errors, this flow will safely be disposed of and then the error will bubble up. Values will be marshalled from `Nomicon.impl.Value` if `marshal` is true; if not, they will be returned untouched. Keep in mind these unmarshalled values are only valid until the next method that modifies the story state in any way - so clone them if you want to keep them around! `yield` makes this function yield at each instruction cycle while executing the function.
 
 * `Nomicon.Story:getTurnCount()`: Returns the current turn count of the story. Turn count increments with every action or call to `Nomicon.Story:choose`.
 
