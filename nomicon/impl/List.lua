@@ -92,10 +92,22 @@ function List:toString()
     return self._string
 end
 
+--- Returns a new list with just the minimum value of this list.
+--- @return Nomicon.Impl.List
+function List:min()
+    return self._definitions:newList(self:getMinValue())
+end
+
 --- Returns the minimum list value of this list.
 --- @return Nomicon.Impl.ListValue | nil
 function List:getMinValue()
     return self._values[1]
+end
+
+--- Returns a new list with just the maximum value of this list.
+--- @return Nomicon.Impl.List
+function List:max()
+    return self._definitions:newList(self:getMaxValue())
 end
 
 --- Returns the maximum list value of this list.

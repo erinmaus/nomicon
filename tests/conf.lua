@@ -19,5 +19,6 @@ function love.conf(t)
         t.modules.audio = false
     end
 
-    t.identity = "Nomicon"
+    t.identity = "Nomicon Demo"
+    t.title = "Nomicon Tests"
 end

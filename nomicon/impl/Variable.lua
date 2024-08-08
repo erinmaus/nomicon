@@ -78,13 +78,24 @@ function Variable:call(executor)
 
             while value and value:is(Constants.TYPE_POINTER) do
                 local pointer = value:getValue()
+                -- if pointer:getContextIndex() <= 0 then
+                --     value = executor:getGlobalVariable(pointer:getVariable())
+                -- end
+
+                -- if not value and pointer:getContextIndex() ~= 0 then
+                --     value = executor:getTemporaryVariable(pointer:getVariable(), pointer:getContextIndex())
+                -- end
+                local globalValue
                 if pointer:getContextIndex() <= 0 then
-                    value = executor:getGlobalVariable(pointer:getVariable())
+                    globalValue = executor:getGlobalVariable(pointer:getVariable())
                 end
 
-                if not value and pointer:getContextIndex() ~= 0 then
-                    value = executor:getTemporaryVariable(pointer:getVariable(), pointer:getContextIndex())
+                local temporaryValue
+                if not globalValue and pointer:getContextIndex() ~= 0 then
+                    temporaryValue = executor:getTemporaryVariable(pointer:getVariable(), pointer:getContextIndex())
                 end
+
+                value = temporaryValue or globalValue
             end
         elseif self:getIsReadCount() then
             value = executor:getVisitCountForContainer(executor:getContainer(self._name))
@@ -109,7 +120,7 @@ function Variable:call(executor)
                     local referenceValue = executor:getTemporaryVariable(currentPointer:getVariable())
                     local updatedContextIndex
                     if referenceValue then
-                        updatedContextIndex = executor:getCurrentFlow():getCurrentThread():getCallStack():getFrameCount()
+                        updatedContextIndex = executor:getTemporaryVariableContextIndex(currentPointer:getVariable())
                     else
                         referenceValue = executor:getGlobalVariable(currentPointer:getVariable())
                         if referenceValue then
@@ -124,8 +135,6 @@ function Variable:call(executor)
                     else
                         value = currentPointer:updateContextIndex(updatedContextIndex, Pointer(currentPointer:getObject()))
                     end
-                else
-                    print("NAY")
                 end
             end
         else

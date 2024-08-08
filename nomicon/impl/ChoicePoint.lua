@@ -72,12 +72,12 @@ function ChoicePoint:call(executor)
         end
     end
 
-    if self:getHasStartContent() then
-        startChoiceText = stack:pop():cast(Constants.TYPE_STRING) or ""
-    end
-
     if self:getHasEndContent() then
         endChoiceText = stack:pop():cast(Constants.TYPE_STRING) or ""
+    end
+
+    if self:getHasStartContent() then
+        startChoiceText = stack:pop():cast(Constants.TYPE_STRING) or ""
     end
 
     local targetContainer = executor:getPointer(self._targetContainer)

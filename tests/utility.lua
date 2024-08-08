@@ -2,6 +2,8 @@ local lu = require("lib.luaunit")
 local json = require("lib.json")
 local Nomicon = require("nomicon")
 
+local IS_DEBUG = os.getenv("LOCAL_LUA_DEBUGGER_VSCODE") == "1"
+
 local function getIsCI(...)
     if os.getenv("CI") then
         return true
@@ -78,9 +80,19 @@ local function runTest(test)
     local story = Nomicon.Story(test.book)
     lu.assertEquals(story:canContinue(), true)
 
+    local maxTime = love.timer.getTime() + 1
+    if not IS_DEBUG then
+        debug.sethook(function()
+            if love.timer.getTime() > maxTime then
+                error(debug.traceback(string.format("TIMEOUT: %s", test.name or "???"), 2), 2)
+            end
+        end, "l")
+    end
+
     local j = 1
     local currentText = ""
     local currentChoicePoint = 1
+    local before = love.timer.getTime()
     while story:canContinue() and (test.content and j < #test.content) do
         local text = story:continue()
         currentText = currentText .. text
@@ -133,36 +145,48 @@ local function runTest(test)
             end
         end
     end
+    local after = love.timer.getTime()
 
     if test.content and j < #test.content then
         lu.assertEquals(currentText, test.content, "output text must match ALL expected text")
     end
+
+    if not IS_DEBUG then
+        debug.sethook()
+    end
+
+    return { duration = after - before }
 end
 
 local function runTests(tests)
     for _, test in ipairs(tests) do
-        local success, message
+        local success, result
+        local before = love.timer.getTime()
         if test.func then
-            success, message = xpcall(test.func, debug.traceback)
+            success, result = xpcall(test.func, debug.traceback)
         else
-            success, message = xpcall(runTest, debug.traceback, test)
+            success, result = xpcall(runTest, debug.traceback, test)
         end
+        local after = love.timer.getTime()
 
         if not success then
-            message = message or ""
-            if message:find("LuaUnit") or true then
+            result = result or ""
+            if result:find("LuaUnit") then
                 coroutine.yield({
                     success = false,
                     name = test.name,
-                    message = message:match("(.*)stack traceback:"):gsub("(LuaUnit test %w+:%s*)", "")
+                    result = result:match("(.*)stack traceback:"):gsub("(LuaUnit test %w+:%s*)", ""),
+                    duration = (after - before) * 1000
                 })
             else
-                error(message)
+                error(result)
             end
         else
             coroutine.yield({
                 success = true,
-                name = test.name
+                name = test.name,
+                totalDuration = (after - before) * 1000,
+                executionDuration = result and (result.duration * 1000) or nil
             })
         end
     end

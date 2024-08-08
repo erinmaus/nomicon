@@ -244,6 +244,17 @@ function Executor:_getTemporaryVariables(contextIndex)
     return callStackFrame:getTemporaryVariables()
 end
 
+function Executor:getTemporaryVariableContextIndex(key)
+    local callStack = self._currentFlow:getCurrentThread():getCallStack()
+    for i = callStack:getFrameCount(), 1, -1 do
+        if callStack:getFrame(i):getTemporaryVariables():has(key) then
+            return i
+        end
+    end
+
+    return -1
+end
+
 function Executor:getTemporaryVariable(key, contextIndex)
     return self:_getTemporaryVariables(contextIndex):get(key)
 end

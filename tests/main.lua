@@ -70,7 +70,7 @@ function love.update()
                 elseif type(result) == "table" then
                     local status = result.success and "PASS" or "FAIL"
                     local color = result.success and GREEN or RED
-                    printf("%s%s%s %s: %s %s", color, status, WHITE, suite.name, result.name or "???", (result.message and "\n" .. result.message) or "")
+                    printf("%s%s%s %s: %s %s (%.2f ms)", color, status, WHITE, suite.name, result.name or "???", (result.message and "\n" .. result.message) or "", result.executionDuration or result.totalDuration)
 
                     table.insert(suite.tests, {
                         success = result.success or false,

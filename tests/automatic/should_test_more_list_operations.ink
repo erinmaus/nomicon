@@ -3,6 +3,11 @@ LIST list = l, m = 5, n
 
 {list(1)}
 
+~ temp a = LIST_ALL(list)
+{a}
+{LIST_MIN(a)}
+{LIST_MAX(a)}
+
 ~ temp t = list()
 ~ t += n
 {t}

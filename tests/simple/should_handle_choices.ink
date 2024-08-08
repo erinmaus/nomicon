@@ -2,11 +2,11 @@
 
 == example ==
 Professor: Are you a GIRL or a BOY?
-* Girl!
+* Girl[!].
   Professor: What is your GIRL name?
-* Boy!
+* Boy[!].
   Professor: What is your BOY name?
-* NEITHER!
+* NEITHER[! (/thinks to self/ Geez, get with the times, old man)!].
   Professor: Cool! What is your NON-BINARY name?
 * ->
   ...

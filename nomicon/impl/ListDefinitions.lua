@@ -19,10 +19,9 @@ function ListDefinitions:new(origins)
             result.valuesByName[valueName] = v
 
             if result.valuesByValue[value] then
-                local o = result.valuesByValue[value]
-                error(string.format("list '%s' has duplicate values: '%s' (%d) and '%s' (%d).", listName, v:getValueName(), v:getValue(), o:getValueName(), o:getValue()))
+                table.insert(result.valuesByValue[value], v)
             else
-                result.valuesByValue[value] = v
+                result.valuesByValue[value] = { v }
             end
             table.insert(result.values, v)
 
@@ -67,9 +66,9 @@ function ListDefinitions:newList(...)
     local values = {}
     for i = 1, select("#", ...) do
         local value = select(i, ...)
-        if not Class.isDerived(Class.getType(value), ListValue) then
+        if value and not Class.isDerived(Class.getType(value), ListValue) then
             error(string.format("expected list value, got '%s'", Class.getType(value) and value:getDebugInfo().shortName))
-        elseif not self._origins[value:getListName()] or not self._origins[value:getListName()].valuesByName[value:getListName()] then
+        elseif value and (not self._origins[value:getListName()] or not self._origins[value:getListName()].valuesByName[value:getListName()]) then
             local origin = self._origins[value:getListName()]
             local v = origin and origin.valuesByName[value:getValueName()]
 
@@ -131,7 +130,7 @@ function ListDefinitions:newListFromValues(listName, ...)
 
         local v
         if type(value) == "number" then
-            v = origin.valuesByValue[value]
+            v = unpack(origin.valuesByValue[value])
             if not v then
                 error(string.format("list '%s' does not have a list value of '%d'", value))
             end
@@ -206,7 +205,7 @@ end
 function ListDefinitions:tryGetValue(a, b)
     if a ~= nil then
         if a:find("%.") or b == nil then
-            local values = self._values[a] or self._values[a:match("[^.]*%.(%w+)")]
+            local values = self._values[a] or self._values[a:match("[^.]*%.([^.]*)")]
             if values then
                 -- We can't short circuit because it will collapse the unpack into a single value
                 -- So no `return values and unpack(values)`...
@@ -217,7 +216,11 @@ function ListDefinitions:tryGetValue(a, b)
         elseif b ~=  nil then
             local origin = self._origins[a]
             if origin then
-                return origin.valuesByName[b] or origin.valuesByValue[b]
+                if origin.valuesByName[b] then
+                    return origin.valuesByName[b]
+                elseif origin.valuesByValue[b] then
+                    return (table.unpack or unpack)(origin.valuesByValue[b])
+                end
             end
         end
     end

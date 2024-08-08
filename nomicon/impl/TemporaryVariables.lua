@@ -48,6 +48,10 @@ function TemporaryVariables:reset()
     Utility.clearTable(self._variables)
 end
 
+function TemporaryVariables:has(key)
+    return self._variables[key] ~= nil
+end
+
 function TemporaryVariables:get(key)
     return self._proxy[key]
 end
