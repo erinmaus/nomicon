@@ -1,5 +1,10 @@
+if love.system.getOS() == "OS X" then
+    jit.off()
+end
+
 local utility = require("utility")
 local isCI = utility.getIsCI(...)
+
 
 local RED = "\027[31m"
 local GREEN = "\027[32m"
@@ -70,7 +75,7 @@ function love.update()
                 elseif type(result) == "table" then
                     local status = result.success and "PASS" or "FAIL"
                     local color = result.success and GREEN or RED
-                    printf("%s%s%s %s: %s %s (%.2f ms)", color, status, WHITE, suite.name, result.name or "???", (result.message and "\n" .. result.message) or "", result.executionDuration or result.totalDuration)
+                    printf("%s%s%s %s: %s %s (%.2f ms)", color, status, WHITE, suite.name, result.name or "???", (result.message and "\n" .. result.message) or "", result.executionDuration or result.totalDuration or -1)
 
                     table.insert(suite.tests, {
                         success = result.success or false,

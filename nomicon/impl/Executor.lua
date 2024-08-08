@@ -61,6 +61,8 @@ function Executor:new(globalVariables)
         self._getSeedFunc = function() return 0 end
         self._randomFunc = function(min, _max) return min end
     end
+    
+    self._isLocked = false
 end
 
 function Executor:resetCounts()
@@ -538,7 +540,7 @@ function Executor:start(path)
     self._currentFlow:getCurrentThread():getCallStack():enter(Constants.DIVERT_START, container, 1)
 end
 
-function Executor:call(path, ...)
+function Executor:call(path, yield, ...)
     if self._isCallingExternalFunction[self._currentFlow] then
         error("cannot call function while in external function")
     end
@@ -552,7 +554,7 @@ function Executor:call(path, ...)
         self:getEvaluationStack():push(arg)
     end
 
-    local text = self:continue()
+    local text = self:continue(yield)
 
     local afterEvaluationStackCount = self:getEvaluationStack():getCount()
 
@@ -741,10 +743,7 @@ function Executor:canContinue()
     return self._currentFlow:getCurrentThread():getCurrentPointer() ~= nil or self._currentFlow:getOutputStack():getCount() >= 1
 end
 
-function Executor:continue()
-    if not self:canContinue() then
-        error("cannot continue executor; not in valid state")
-    end
+function Executor:_continue(yield)
 
     while self:_shouldContinue() do
         self:step()
@@ -752,10 +751,38 @@ function Executor:continue()
         if not self._currentFlow:shouldContinue() then
             break
         end
+
+        if yield then
+            coroutine.yield()
+        end
     end
 
     self._currentFlow:continue()
     return self._currentFlow:getText()
+end
+
+function Executor:continue(yield)
+    if not self:canContinue() then
+        error("cannot continue executor; not in valid state")
+    end
+
+    if self._isLocked then
+        error("executor is locked; cannot continue")
+    end
+
+    self._isLocked = not not yield
+    local success, result = Utility.xpcall(self._continue, self, yield)
+    self._isLocked = false
+
+    if not success then
+        error(result, 0)
+    end
+
+    return result
+end
+
+function Executor:getIsLocked()
+    return self._isLocked
 end
 
 function Executor:getTagCount()

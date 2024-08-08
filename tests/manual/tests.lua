@@ -189,7 +189,7 @@ end)
 test("should test function calls", function()
     local story = loadStory("should_test_function_calls")
     
-    local text, tags, sum = story:call("add", true, 17, 115)
+    local text, tags, sum = story:call("add", true, false, 17, 115)
 
     lu.assertEquals(text, "Adding 17 and 115...\n")
     lu.assertEquals(tags, { "emotion: mathematical" })
@@ -202,6 +202,90 @@ test("should handle errors in function calls", function()
 
     lu.assertIsFalse(success)
     lu.assertEquals(story:getCurrentFlowName(), "default")
+end)
+
+test("measure performance", function()
+    local story = loadStory("performance")
+
+    local function measure(number, expected)
+        local func = coroutine.wrap(function() return story:call("print_num", true, true, number) end)
+
+        local samples = {}
+        local result, _tags, returnValue
+        local before = love.timer.getTime()
+        repeat
+            local iterationBefore = love.timer.getTime()
+            result, _tags, returnValue = func()
+            local iterationAfter = love.timer.getTime()
+            table.insert(samples, iterationAfter - iterationBefore)
+        until result
+        local after = love.timer.getTime()
+
+        local average = 0
+        for _, sample in ipairs(samples) do
+            average = average + sample
+        end
+        average = average / #samples
+
+        print(string.format("output: %s", result:gsub("\n", "")))
+        print(string.format("average step time: %.2f ms (%d steps), total call time: %.2f ms", average * 1000, #samples, (after - before) * 1000))
+
+        lu.assertEquals(result:gsub("\n", ""), expected)
+    end
+
+    measure(0, "zero")
+    measure(1, "one")
+    measure(15, "fifteen")
+    measure(67, "sixty-seven")
+    measure(101, "one hundred and one")
+    measure(122, "one hundred and twenty-two")
+    measure(222, "two hundred and twenty-two")
+    measure(9745, "nine thousand seven hundred and forty-five")
+    measure(3.75, "three")
+end)
+
+test("should yield", function()
+    local story = loadStory("demo")
+
+    local isEnding = false
+    while story:canContinue() do
+        local func = coroutine.wrap(function() return story:continue(true) end)
+
+        local samples = {}
+        local result
+        local before = love.timer.getTime()
+        repeat
+            local iterationBefore = love.timer.getTime()
+            result = func()
+            local iterationAfter = love.timer.getTime()
+            table.insert(samples, iterationAfter - iterationBefore)
+        until result
+        local after = love.timer.getTime()
+
+        local average = 0
+        for _, sample in ipairs(samples) do
+            average = average + sample
+        end
+        average = average / #samples
+
+        print(string.format("output: %s", result:gsub("\n", "")))
+        print(string.format("average step time: %.2f ms (%d steps), total continue time: %.2f ms", average * 1000, #samples, (after - before) * 1000))
+
+        local choices = Nomicon.ChoiceList(story)
+        if choices:hasChoices() then
+            for i = 1, choices:getChoiceCount() do
+                local choice = choices:getChoice(i)
+                if choice:getText() == "Leave the room" then
+                    isEnding = true
+                end
+
+                print(string.format("choice %d: %s", i, choice:getText()))
+            end
+
+            local choice = (isEnding and choices:getChoice(2)) or (choices:getChoice(1))
+            choice:choose()
+        end
+    end
 end)
 
 utility.runTests(tests)
