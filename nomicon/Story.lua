@@ -6,7 +6,6 @@ local Utility = require(PATH .. "impl.Utility")
 --- @module "nomicon.impl.Constants"
 local Constants = require(PATH .. "impl.Constants")
 local Executor = require(PATH .. "impl.Executor")
-local GlobalVariables = require(PATH .. "impl.GlobalVariables")
 local ListDefinitions = require(PATH .. "impl.ListDefinitions")
 local Value = require(PATH .. "impl.Value")
 local InstructionBuilder = require(PATH .. "impl.InstructionBuilder")
@@ -22,15 +21,8 @@ local Story = Class()
 --- @param defaultGlobalVariables table
 function Story:new(book, defaultGlobalVariables)
     self._book = book
-
-    self._globalVariables = GlobalVariables()
-    if defaultGlobalVariables then
-        for key, value in pairs(defaultGlobalVariables) do
-            self._globalVariables:set(key, value)
-        end
-    end
-
-    self._executor = Executor(self._globalVariables)
+    self._defaultGlobalVariables = defaultGlobalVariables
+    self._executor = Executor()
 
     local listDefinitions = ListDefinitions(book.listDefs or {})
     self._executor:setListDefinitions(listDefinitions)
@@ -62,6 +54,12 @@ function Story:_loadGlobals()
         self._executor:stop()
 
         assert(not self._executor:canContinue(), "global variable initialization container bad")
+    end
+
+    if self._defaultGlobalVariables then
+        for key, value in pairs(self._defaultGlobalVariables) do
+            self._executor:setGlobalVariable(key, Value(nil, value), false)
+        end
     end
 end
 

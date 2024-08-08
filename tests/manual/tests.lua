@@ -6,9 +6,9 @@ local utility = require "utility"
 
 local tests = {}
 
-local function loadStory(filename)
+local function loadStory(filename, ...)
     local book = json.decode(love.filesystem.read(string.format("manual/%s.json", filename)))
-    local story = Nomicon.Story(book)
+    local story = Nomicon.Story(book, ...)
     return story
 end
 
@@ -18,6 +18,13 @@ local function test(description, func)
         func = func
     })
 end
+
+test("should test default global variables", function()
+    local story = loadStory("should_test_default_global_variables", { to_be_overwritten = "I'm a human bean!" })
+    lu.assertEquals(story:continue(), "I'm a human bean!\n")
+    lu.assertEquals(story:continue(), "Even the temp! I'm a human bean!\n")
+    lu.assertEquals(story:continue(), "Now I'm financially responsible!\n")
+end)
 
 test("should test LIST_RANDOM", function()
     local story = loadStory("should_test_list_random")
