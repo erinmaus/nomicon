@@ -1,0 +1,25 @@
+name: testing
+
+on:
+  push:
+    branches:
+      - 'main'
+  pull_request:
+  workflow_dispatch: null
+
+job:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Download LÖVE 💜
+        run: |
+          curl -L https://github.com/love2d/love/releases/download/11.5/love-11.5-x86_64.AppImage -o love-11.5-x86_64.AppImage
+          chmod +x ./love-11.5-x86_64.AppImage
+      - name: Tests
+        run: |
+          LOVE_BINARY=./love-11.5-x86_64.AppImage ./tests.sh
