@@ -186,4 +186,22 @@ test("should test global variable listeners", function()
     lu.assertEquals(example1:getValue(), "good")
 end)
 
+test("should test function calls", function()
+    local story = loadStory("should_test_function_calls")
+    
+    local text, tags, sum = story:call("add", true, 17, 115)
+
+    lu.assertEquals(text, "Adding 17 and 115...\n")
+    lu.assertEquals(tags, { "emotion: mathematical" })
+    lu.assertEquals(sum, 132)
+end)
+
+test("should handle errors in function calls", function()
+    local story = loadStory("should_test_function_calls")
+    local success, message = pcall(story.call, story, "add", true)
+
+    lu.assertIsFalse(success)
+    lu.assertEquals(story:getCurrentFlowName(), "default")
+end)
+
 utility.runTests(tests)

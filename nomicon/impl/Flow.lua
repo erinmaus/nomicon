@@ -252,7 +252,7 @@ function Flow:trimWhitespace(stackPointer)
     stackPointer = stackPointer or 0
 
     for i = self._outputStack:getCount(), 1, -1 do
-        if not self._outputStack:isWhitespace(i, i) and not self._outputStack:peek(i):is(Constants.TYPE_GLUE) then
+        if not self._outputStack:isWhitespace(i, i) then
             break
         end
 
@@ -260,7 +260,9 @@ function Flow:trimWhitespace(stackPointer)
             break
         end
 
-        self._outputStack:remove(i)
+        if not self._outputStack:peek(i):is(Constants.TYPE_TAG) or self._outputStack:peek(i):is(Constants.TYPE_GLUE) then
+            self._outputStack:remove(i)
+        end
     end
 end
 
@@ -336,31 +338,6 @@ function Flow:shouldContinue()
 end
 
 function Flow:continue()
-    -- for i = 1, self._tagStack:getCount(), 2 do
-    --     local tag = self._tagStack:peek(i):cast(Constants.TYPE_STRING)
-    --     local outputStackPointer = self._tagStack:peek(i + 1):cast(Constants.TYPE_NUMBER)
-        
-    --     if outputStackPointer > currentStop then
-    --         break
-    --     end
-
-    --     tag = Utility.cleanWhitespace(tag)
-    --     table.insert(self._tags, tag)
-    -- end
-
-    -- for i = 1, #self._tags do
-    --     self._tagStack:remove(1)
-    --     self._tagStack:remove(1)
-    -- end
-    
-    -- for i = 1, self._tagStack:getCount(), 2 do
-    --     local outputStackPointerValue = self._tagStack:peek(i + 1)
-    --     local outputStackPointer = outputStackPointerValue:cast(Constants.TYPE_NUMBER)
-
-    --     local newOutoutStackPointer = outputStackPointer - currentStop
-    --     self._tagStack:set(i, newOutoutStackPointer)
-    -- end
-
     if self._outputStack:getCount() == 0 then
         self._currentText = ""
         return

@@ -167,6 +167,21 @@ function ValueStack:clear()
     self._top = 0
 end
 
+function ValueStack:_pop(start, stop, top)
+    local value
+    if stop > top then
+        value = Value.VOID
+    else
+        value = self._stack[start]
+    end
+
+    if start == stop then
+        return value
+    else
+        return value, self:_pop(start + 1, stop, top)
+    end
+end
+
 function ValueStack:pop(count)
     count = count or 1
 
@@ -174,21 +189,13 @@ function ValueStack:pop(count)
         error("cannot pop zero or less values")
     end
 
-    if self._top <= 0 then
-        assert(self._top == 0, "stack somehow became unbalanced (less than 0 values)")
-        error("cannot pop; no values in stack!")
-    end
-
-    if count > self._top then
-        error("cannot pop more values than on stack")
-    end
-
     local startIndex = self:_toAbsoluteIndex(-count)
     local stopIndex = self:_toAbsoluteIndex(-1)
 
+    local top = self._top
     self._top = self._top - count
 
-    return (table.unpack or unpack)(self._stack, startIndex, stopIndex)
+    return self:_pop(startIndex, stopIndex, top)
 end
 
 function ValueStack:remove(index)

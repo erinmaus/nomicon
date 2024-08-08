@@ -34,6 +34,8 @@ function Thread:clearDivertedPointer()
     self._divertType = nil
     self._divertedContainer = nil
     self._divertedContainerIndex = nil
+    self._divertedArguments = nil
+    self._divertedArgumentsCount = nil
 end
 
 function Thread:getDivertedPointerType()
@@ -44,10 +46,16 @@ function Thread:getDivertedPointer()
     return self._divertedContainer, self._divertedContainerIndex
 end
 
-function Thread:divertToPointer(divertType, container, index)
+function Thread:getDivertedArguments()
+    return self._divertedArguments, self._divertedArgumentsCount
+end
+
+function Thread:divertToPointer(divertType, container, index, ...)
     self._divertType = divertType
     self._divertedContainer = container
     self._divertedContainerIndex = index
+    self._divertedArguments = { ... }
+    self._divertedArgumentsCount = select("#", ...)
 end
 
 function Thread:updatePreviousPointer()

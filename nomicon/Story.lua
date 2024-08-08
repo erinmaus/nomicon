@@ -1,6 +1,7 @@
 local PATH = (...):gsub("[^%.]+$", "")
 local Class = require(PATH .. "impl.Class")
 local Container = require(PATH .. "impl.Container")
+local Utility = require(PATH .. "impl.Utility")
 
 --- @module "nomicon.impl.Constants"
 local Constants = require(PATH .. "impl.Constants")
@@ -85,6 +86,54 @@ function Story:_loadGlobalTags()
     self._executor:resetCounts()
 end
 
+--- Instantiates a new flow.
+--- 
+--- A flow is essentially an (almost) independent execution of a story. Only global variables and
+--- turn/visit counts are shared. Everything else is independent.
+--- 
+--- The new flow is not made current.
+--- 
+--- @param name string the name of the flow. cannot be the same as another flow or "default"
+--- @return boolean success returns true on success, false on failure
+function Story:newFlow(name)
+    return self._executor:newFlow(name)
+end
+
+--- Deletes an existing flow.
+--- 
+--- If the deleted flow was active, the default flow will become active.
+--- 
+--- @param name string the name of the flow. cannot be "default"
+function Story:deleteFlow(name)
+    return self._executor:deleteFlow(name)
+end
+
+--- Switches to the named flow.
+--- @param name string the name of the flow to switch to
+function Story:switchFlow(name)
+    return self._executor:switchFlow(name)
+end
+
+--- Returns true if the flow with the name exists, false otherwise.
+--- @param name string the name of the flow
+--- @return boolean
+function Story:hasFlow(name)
+    return self._executor:hasFlow(name)
+end
+
+--- Returns an iterator that iterates over the names of the flows in creation order.
+--- The key (index) is just represents the order the flow was created relative to the others.
+--- @return fun(table: string[], i?: integer), string[], integer
+function Story:flows()
+    return self._executor:flows()
+end
+
+--- Gets the name of the currently active flow.
+--- @return string
+function Story:getCurrentFlowName()
+    return self._executor:getCurrentFlow():getName()
+end
+
 --- Configures the RNG for the story.
 --- 
 --- A default RNG implementation is provided when run in LÖVE with a global `love` table.
@@ -95,6 +144,26 @@ end
 --- @param random fun(min: integer, max: integer): integer the function to return a random value given the current seed
 function Story:setRandom(setSeedFunc, getSeedFunc, random)
     self._executor:setRandom(setSeedFunc, getSeedFunc, random)
+end
+
+--- Sets the random seed.
+--- @param seed integer | any
+function Story:setRandomSeed(seed)
+    self._executor:setRandomSeed(seed)
+end
+
+--- Returns the random seed.
+--- @return integer | any seed
+function Story:getRandomSeed()
+    return self._executor:getRandomSeed()
+end
+
+--- Calculates a random value integer inclusive between [min, max] using the Story's RNG.
+--- @param min integer
+--- @param max integer
+--- @return integer 
+function Story:random(min, max)
+    return self._executor:random(min, max)
 end
 
 --- Gets the current value of a global variable.
@@ -123,9 +192,8 @@ end
 --- @param variableName string the name of the global variable
 --- @param value Nomicon.Value the value of the variable
 function Story:setGlobalVariable(variableName, value)
-    self._executor:setGlobalVariable(variableName, Value(nil, value))
+    self._executor:setGlobalVariable(variableName, Value(nil, value), value)
 end
-
 
 --- @alias Nomicon.GlobalVariableListener fun(args...: any, key: string, value: Nomicon.Value, previousValue: Nomicon.Value): any | fun(args...: any, value: Nomicon.Value, previousValue: Nomicon.Value): any
 
@@ -301,15 +369,65 @@ function Story:getTags(path)
     return tags
 end
 
---- Makes a choice.
+--- Advanced the turn by switching to a knot or making a choice.
 --- 
 --- This will increment the turn count on success.
 --- 
 --- @param option Nomicon.Impl.Choice | string the choice or path to a knot (or container, if you dare...)
---- @return boolean result true if the choice was successful (ie was valid), false otherwise
-function Story:choose(option)
+--- @param ... Nomicon.Value a list of values to pass to the container at the path
+--- @return boolean result true if the choice was successful (i.e., path or choice was valid), false otherwise
+function Story:choose(option, ...)
     self._executor:incrementTurnCount()
-    return self._executor:choose(option)
+
+    local callStack = self._executor:getCurrentFlow():getCurrentThread():getCallStack()
+    callStack:clear()
+    callStack:enter(Constants.DIVERT_START, self._executor:getRootContainer(), 1)
+
+    return self._executor:choose(option, ...)
+end
+
+--- Calls a function.
+--- 
+--- The function runs in a temporary flow, independent of the current flow.
+--- Thus it is safe to call in an external function.
+--- 
+--- Returns the text, tags, and lastly the marshalled return values.
+--- 
+--- @param path string path to the function
+--- @param marshal boolean? whether or not to marshal the return values. defaults to true.
+--- @param ... Nomicon.Value a list values to pass to the function
+--- @return string content, string[] tags, Nomicon.Value ... returns the content, tags, and values
+function Story:call(path, marshal, ...)
+    local TEMP_FLOW_NAME = {}
+    self._executor:newFlow(TEMP_FLOW_NAME)
+    self._executor:switchFlow(TEMP_FLOW_NAME)
+
+    local callStack = self._executor:getCurrentFlow():getCurrentThread():getCallStack()
+    callStack:enter(Constants.DIVERT_START, self._executor:getRootContainer(), 1)
+
+    local results = { Utility.xpcall(self._executor.call, self._executor, path, ...) }
+    local n = #results
+
+    self._executor:deleteFlow(TEMP_FLOW_NAME)
+
+    if not results[1] then
+        error(results[2], 0)
+    end
+
+    if marshal == nil or marshal then
+        -- "success", "content", "tags", arg1, ..., argN
+        for i = 4, #results do
+            results[i] = results[i]:getValue()
+        end
+    end
+
+    return (unpack or table.unpack)(results, 2, n)
+end
+
+--- Returns the current turn count of the story.
+--- @return integer
+function Story:getTurnCount()
+    return self._executor:getTurnCount()
 end
 
 return Story

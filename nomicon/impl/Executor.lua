@@ -26,11 +26,12 @@ function Executor:new(globalVariables)
     self._choices = {}
 
     self._flows = {}
+    self._flowNames = {}
     self._defaultFlow = Flow(self, "default")
     self._currentFlow = self._defaultFlow
 
     self._externalFuncs = {}
-    self._isCallingExternalFunction = false
+    self._isCallingExternalFunction = {}
 
     self._globalVariables = GlobalVariables(globalVariables)
 
@@ -72,7 +73,14 @@ function Executor:newFlow(name)
         return false
     end
 
+    if self._flows[name] then
+        return false
+    end
+
     self._flows[name] = Flow(self, name)
+    table.insert(self._flowNames, name)
+
+    return true
 end
 
 function Executor:deleteFlow(name)
@@ -83,6 +91,14 @@ function Executor:deleteFlow(name)
     local flow = self._flows[name]
     if not flow then
         return false
+    end
+
+    self._isCallingExternalFunction[flow] = nil
+
+    for index, name in ipairs(self._flowNames) do
+        if name == name then
+            table.remove(self._flowNames, index)
+        end
     end
     
     if self._currentFlow == flow then
@@ -96,7 +112,7 @@ end
 function Executor:switchFlow(name)
     if not name or name == "default" then
         self._currentFlow = self._defaultFlow
-        return
+        return true
     end
 
     local flow = self._flows[name]
@@ -105,6 +121,15 @@ function Executor:switchFlow(name)
     end
 
     self._currentFlow = flow
+    return true
+end
+
+function Executor:hasFlow(name)
+    return self._flows[name] ~= nil or name == "default"
+end
+
+function Executor:flows()
+    return ipairs(self._flowNames)
 end
 
 function Executor:clean()
@@ -185,15 +210,15 @@ function Executor:getGlobalVariable(key)
     return self._globalVariables:get(key)
 end
 
-function Executor:setGlobalVariable(key, value)
-    if self._isCallingExternalFunction then
+function Executor:setGlobalVariable(key, value, fireListeners)
+    if self._isCallingExternalFunction[self._currentFlow] then
         self._globalVariables:set(key, value, false)
         return
     end
 
-    self._isCallingExternalFunction = true
-    local success, result = pcall(self._globalVariables.set, self._globalVariables, key, value, true)
-    self._isCallingExternalFunction = false
+    self._isCallingExternalFunction[self._currentFlow] = true
+    local success, result = pcall(self._globalVariables.set, self._globalVariables, key, value, fireListeners == nil and true or fireListeners)
+    self._isCallingExternalFunction[self._currentFlow] = false
 
     if not success then
         error(string.format("error setting global variable '%s': %s", key, result))
@@ -368,7 +393,7 @@ function Executor:clearChoices()
     self._currentFlow:clearChoices()
 end
 
-function Executor:_choosePath(path)
+function Executor:_choosePath(path, ...)
     local container, index = self:getPointer(path)
     if not container or not index then
         return false
@@ -378,7 +403,7 @@ function Executor:_choosePath(path)
     if callStack:getFrameCount() == 0 then
         callStack:enter(Constants.DIVERT_START, container, index)
     else
-        self:divertToPointer(Constants.DIVERT_TO_PATH, container, index)
+        self:divertToPointer(Constants.DIVERT_TO_PATH, container, index, ...)
     end
 
     self:clearChoices()
@@ -415,8 +440,8 @@ function Executor:_chooseChoice(choice)
     return true
 end
 
-function Executor:divertToPointer(divertType, container, index)
-    self._currentFlow:getCurrentThread():divertToPointer(divertType, container, index)
+function Executor:divertToPointer(divertType, container, index, ...)
+    self._currentFlow:getCurrentThread():divertToPointer(divertType, container, index, ...)
 end
 
 function Executor:hasExternalFunction(name)
@@ -483,9 +508,9 @@ function Executor:divertToExternal(name, numArgs)
         externalFunction.args[externalFunction.n + offset] = value
     end
 
-    self._isCallingExternalFunction = true
+    self._isCallingExternalFunction[self._currentFlow] = true
     local success, result = pcall(externalFunction.func, (table.unpack or unpack)(externalFunction.args, 1, externalFunction.n + numArgs))
-    self._isCallingExternalFunction = false
+    self._isCallingExternalFunction[self._currentFlow] = false
 
     if not success then
         error(string.format("error running external function '%s': %s", name, result))
@@ -503,7 +528,7 @@ function Executor:start(path)
 end
 
 function Executor:call(path, ...)
-    if self._isCallingExternalFunction then
+    if self._isCallingExternalFunction[self._currentFlow] then
         error("cannot call function while in external function")
     end
 
@@ -511,20 +536,31 @@ function Executor:call(path, ...)
     self:divertToPointer(Constants.DIVERT_TO_FUNCTION, container, index)
 
     local beforeEvaluationStackCount = self:getEvaluationStack():getCount()
-    self:continue()
+    for i = 1, select("#", ...) do
+        local arg = select(i, ...)
+        self:getEvaluationStack():push(arg)
+    end
+
+    local text = self:continue()
+
     local afterEvaluationStackCount = self:getEvaluationStack():getCount()
 
+    local tags = {}
+    for i = 1, self._currentFlow:getTagCount() do
+        table.insert(tags, self._currentFlow:getTag(i))
+    end
+
     local numReturnValues = afterEvaluationStackCount - beforeEvaluationStackCount
-    return self:getEvaluationStack():pop(numReturnValues)
+    return text, tags, self:getEvaluationStack():pop(numReturnValues)
 end
 
-function Executor:choose(value)
+function Executor:choose(value, ...)
     if Class.isDerived(Class.getType(value), Choice) then
         return self:_chooseChoice(value)
     end
 
     self._currentFlow:getCurrentThread():getCallStack():clear()
-    return self:_choosePath(value)
+    return self:_choosePath(value, ...)
 end
 
 function Executor:_updateVisits(thread)
@@ -582,6 +618,11 @@ function Executor:_divert(thread)
         thread:getCallStack():enter(divertType, container, index)
     else
         thread:getCallStack():jump(container, index)
+    end
+
+    local arguments, count = thread:getDivertedArguments()
+    for i = 1, count do
+        self:getEvaluationStack():push(arguments[i])
     end
 
     thread:clearDivertedPointer()
