@@ -135,8 +135,6 @@ function Variable:call(executor)
                     else
                         value = currentPointer:updateContextIndex(updatedContextIndex, Pointer(currentPointer:getObject()))
                     end
-
-                    error(debug.traceback("LuaUnit test FAILURE: example failure"))
                 end
             end
         else
