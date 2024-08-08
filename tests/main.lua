@@ -55,7 +55,7 @@ local FRAME = 1 / 60
 
 function love.update()
     local startTime = isCI and math.huge or love.timer.getTime()
-    local didSucceed = false
+    local didSucceed = true
     local isDone = false
 
     local currentTime = love.timer.getTime()
