@@ -1,5 +1,5 @@
 local PATH = (...):gsub("[^%.]+$", "")
-local Class = require(PATH .. "Impl.Class")
+local Class = require(PATH .. "impl.Class")
 local Choice = require(PATH .. "Choice")
 
 --- @class Nomicon.ChoiceList represents a list of visible choices

@@ -1,6 +1,6 @@
 local PATH = (...):gsub("[^%.]+$", "")
-local Class = require(PATH .. "Impl.Class")
-local ImplChoice = require(PATH .. "Impl.Choice")
+local Class = require(PATH .. "impl.lass")
+local ImplChoice = require(PATH .. "impl.hoice")
 
 --- @class Nomicon.Choice represents a wrapper around a choice
 --- @overload fun(choice: Nomicon.Impl.Choice, index: integer, story: Nomicon.Story): Nomicon.Choice
