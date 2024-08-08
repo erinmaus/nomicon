@@ -10,14 +10,39 @@ Add the `nomicon` folder to your project... somewhere. Run your story like so:
 local json = require "json" -- for example, see https://github.com/rxi/json.lua
 local Nomicon = require "nomicon"
 
-local book = json.decode(love.filesystem.read("book.json"))
+local book = json.decode(love.filesystem.read("demo.json"))
 local story = Nomicon.Story(book)
+local choices = Nomicon.ChoiceList(story)
 
-while story:canContinue()
-    print(story:continue())
+while story:canContinue() do
+  local text = story:continue()
+  print(text)
 
-    -- ...
+  if choices:hasChoices() then
+    for i = 1, choices:getChoiceCount() do
+      local choice = choices:getChoice(i)
+      print(string.format("%d. %s", i, choice:getText()))
+    end
+
+    local choiceIndex
+    repeat
+      io.write("> ")
+
+      local input = io.read()
+      choiceIndex = tonumber(input)
+
+      if not choiceIndex then
+        print("Please enter a choice number.")
+      elseif not (choiceIndex >= 1 and choiceIndex <= choices:getChoiceCount()) then
+        print(string.format("Please enter a choice from 1 through %d.", choices:getChoiceCount()))
+      end
+    until choiceIndex and choiceIndex >= 1 and choiceIndex <= choices:getChoiceCount()
+
+    choices:getChoice(choiceIndex):choose()
+  end
 end
+
+print("The End.")
 ```
 
 See the API documentation in the source or README for more info.
