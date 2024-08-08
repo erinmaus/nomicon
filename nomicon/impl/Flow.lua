@@ -12,17 +12,20 @@ local Flow = Class()
 function Flow:new(executor, name)
     self._name = name
     self._executor = executor
-    self._evaluationStack = ValueStack()
-    self._outputStack = ValueStack()
+    self._evaluationStack = ValueStack(executor)
+    self._outputStack = ValueStack(executor, true)
 
     self._logicalEvaluationDepth = 0
-    self._evaluationStackStringIndices = {}
-    self._evaluationStackTagIndices = {}
+    self._outputStackStringPointers = {}
+    self._outputStackTagIndices = {}
 
+    self._choiceTags = {}
     self._choices = {}
     self._choiceCount = 0
 
     self._tags = {}
+
+    self._nextTags = {}
     self._currentText = ""
 
     self._threads = { Thread(executor) }
@@ -72,6 +75,10 @@ function Flow:leaveLogicalEvaluation()
     frame:leaveLogicalEvaluation()
 end
 
+function Flow:getCurrentStringEvaluationPointer()
+    return self._outputStackStringPointers[#self._outputStackStringPointers] or 0
+end
+
 function Flow:startStringEvaluation()
     if not self:getIsInExpressionEvaluation() then
         error("expected to be in logical evaluation mode")
@@ -79,7 +86,7 @@ function Flow:startStringEvaluation()
 
     self:leaveLogicalEvaluation()
 
-    table.insert(self._evaluationStackStringIndices, self._outputStack:getCount())
+    table.insert(self._outputStackStringPointers, self._outputStack:getCount())
 end
 
 function Flow:stopStringEvaluation()
@@ -87,39 +94,38 @@ function Flow:stopStringEvaluation()
         error("expected to NOT be in logical evaluation mode")
     end
 
-    if #self._evaluationStackStringIndices == 0 then
-        error("not currently in string evaluation mode")
+    local startIndex = table.remove(self._outputStackStringPointers) + 1
+    local stopIndex = self._outputStack:getCount()
+    while stopIndex >= 1 and self._outputStack:peek(stopIndex):is(Constants.TYPE_TAG) do
+        stopIndex = stopIndex - 1
     end
 
-    local startIndex = table.remove(self._evaluationStackStringIndices, #self._evaluationStackStringIndices) + 1
-    local stopIndex = self._outputStack:getCount()
-
     local result = self._outputStack:toString(startIndex, stopIndex)
-    self._evaluationStack:push(Value(nil, result))
+    for i = stopIndex, startIndex, -1 do
+        self._outputStack:remove(i)
+    end
 
-    local count = stopIndex - startIndex + 1
-    self._outputStack:pop(count)
-
+    self._evaluationStack:push(result)
     self:enterLogicalEvaluation()
 end
 
 function Flow:enterTag()
-    table.insert(self._evaluationStackTagIndices, self._evaluationStack:getCount())
+    table.insert(self._outputStackTagIndices, self._outputStack:getCount())
 end
 
 function Flow:leaveTag()
-    if #self._evaluationStackTagIndices == 0 then
-        error("not currently in tag mode")
+    if #self._outputStackTagIndices == 0 then
+        return
     end
 
-    local startIndex = table.remove(self._evaluationStackTagIndices, #self._evaluationStackTagIndices)
-    local stopIndex = self._evaluationStack:getCount()
+    local startIndex = table.remove(self._outputStackTagIndices) + 1
 
-    local result = self._evaluationStack:toString(startIndex, stopIndex)
-    self._evaluationStack:push(Value(Constants.TYPE_TAG, result))
+    local result = self._outputStack:toString(startIndex, -1)
+    local tag = Value(Constants.TYPE_TAG, result)
+    local count = self._outputStack:getCount() - startIndex + 1
 
-    local count = stopIndex - startIndex + 1
-    self._evaluationStack:pop(count)
+    self._outputStack:pop(count)
+    self._outputStack:push(tag)
 end
 
 function Flow:clean()
@@ -199,7 +205,6 @@ function Flow:addChoice(choicePoint)
         self._choices[index] = choice
     end
     choice:create(choicePoint)
-
     self._choiceCount = index
 
     return choice
@@ -243,25 +248,117 @@ function Flow:stop()
     self:clearChoices()
 end
 
+function Flow:trimWhitespace(stackPointer)
+    stackPointer = stackPointer or 0
+
+    for i = self._outputStack:getCount(), 1, -1 do
+        if not self._outputStack:isWhitespace(i, i) then
+            break
+        end
+
+        if i <= stackPointer then
+            break
+        end
+
+        if not self._outputStack:peek(i):is(Constants.TYPE_TAG) or self._outputStack:peek(i):is(Constants.TYPE_GLUE) then
+            self._outputStack:remove(i)
+        end
+    end
+end
+
+function Flow:_findBreak(index)
+    local pendingStart = index or 1
+    local pendingStop = pendingStart
+
+    while pendingStop < self._outputStack:getCount() do
+        local isTag = self._outputStack:peek(pendingStop):is(Constants.TYPE_TAG)
+        if not isTag and not self._outputStack:isWhitespace(pendingStop, pendingStop) then
+            break
+        end
+
+        pendingStop = pendingStop + 1
+    end
+
+
+    local hasGlue = false
+    while pendingStop < self._outputStack:getCount() do
+        local isTag = self._outputStack:peek(pendingStop):is(Constants.TYPE_TAG)
+        if not isTag then
+            if hasGlue and not self._outputStack:isWhitespace(pendingStop, pendingStop) then
+                hasGlue = false
+            end
+
+            if not hasGlue and self._outputStack:toString(pendingStop, pendingStop):find("\n$") then
+                break
+            end
+
+            if self._outputStack:peek(pendingStop):is(Constants.TYPE_GLUE) then
+                hasGlue = true
+            end
+        end
+
+        pendingStop = pendingStop + 1
+    end
+
+    return pendingStart, pendingStop
+end
+
+--- Returns true if the flow is still waiting on valid output.
+--- 
+--- Generally, when the output stack looks like this:
+--- 
+--- (pending_text*)(whitespace_with_newline*)(next_text*)
+--- 
+--- Then the story should break and return current_text.
+--- 
+--- @return boolean
+function Flow:shouldContinue()
+    if #self._outputStackStringPointers >= 1 then
+        return true
+    end
+
+    -- There is nothing in the output stack.
+    if self._outputStack:getCount() == 0 then
+        return true
+    end
+
+    -- Currently the entire output stack is just whitespace.
+    if self._outputStack:isWhitespace() then
+        return true
+    end
+
+    local _, pendingStop = self:_findBreak()
+    local _, nextStop = self:_findBreak(pendingStop)
+
+    if nextStop <= self._outputStack:getCount() and not (nextStop > pendingStop and self._outputStack:toString(nextStop, nextStop):find("\n$")) then
+        return true
+    end
+    
+    return false
+end
+
 function Flow:continue()
-    Utility.clearTable(self._tags)
-
-    local index = self._outputStack:getCount()
-    while index >= 1 and self._outputStack:peek(index):cast(Constants.TYPE_STRING) == "\n" do
-        index = index - 1
-    end
-
-    while index >= 1 and self._outputStack:peek(index):is(Constants.TYPE_TAG) do
-        table.insert(self._tags, self._outputStack:peek(index):cast(Constants.TYPE_STRING))
-        index = index - 1
-    end
-
-    if index < 1 then
+    if self._outputStack:getCount() == 0 then
         self._currentText = ""
-    else
-        local text = self._outputStack:toString(1, index)
-        self._currentText = text:gsub("^[\n\r%s]*", ""):gsub("[\n\r%s*]*[\n\r]?$", ""):gsub("([\t%s][\t%s]*)", " ") .. "\n"
+        return
     end
+
+    local currentStart, currentStop = self:_findBreak()
+
+    Utility.clearTable(self._tags)
+    for i = currentStart, currentStop do
+        local value = self._outputStack:peek(i)
+        if value:is(Constants.TYPE_TAG) then
+            local tag = Utility.cleanWhitespace(value:cast(Constants.TYPE_STRING))
+            table.insert(self._tags, tag)
+        end
+    end
+
+    local text = self._outputStack:toString(currentStart, currentStop)
+    for i = currentStop, currentStart, -1 do
+        self._outputStack:remove(i)
+    end
+    self._currentText = Utility.cleanWhitespace(text) .. "\n"
 end
 
 return Flow

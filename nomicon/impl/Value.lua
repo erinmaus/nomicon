@@ -4,6 +4,7 @@ local Constants = require(PATH .. "Constants")
 local List = require(PATH .. "List")
 local Pointer = require(PATH .. "Pointer")
 
+--- @class Nomicon.Impl.Value
 local Value = Class()
 
 local VOID    = Constants.TYPE_VOID
@@ -33,6 +34,19 @@ for _, valueType in ipairs(TYPES) do
     CASTS[valueType] = {}
 end
 
+-- Cast from void
+CASTS[VOID][NUMBER] = function()
+    return 0
+end
+
+CASTS[VOID][BOOLEAN] = function()
+    return false
+end
+
+CASTS[VOID][STRING] = function()
+    return ""
+end
+
 -- Cast from strings
 CASTS[STRING][NUMBER] = function(value)
     return tonumber(value)
@@ -46,7 +60,8 @@ end
 CASTS[NUMBER][STRING] = function(value)
     local isFloat = math.abs(value) - math.floor(math.abs(value)) > 0
     if isFloat then
-        return string.format("%1.7f", value)
+        local digits = math.floor(math.log(value, 10) + 1) + 7
+        return string.format(string.format("%%.%dg", digits), value)
     end
 
     return tostring(value)
@@ -72,7 +87,7 @@ end
 
 -- Cast from lists
 CASTS[LIST][BOOLEAN] = function(value)
-    return next(value) ~= nil
+    return value:empty() == false
 end
 
 CASTS[LIST][NUMBER] = function(value)
@@ -85,17 +100,12 @@ CASTS[LIST][NUMBER] = function(value)
 end
 
 CASTS[LIST][STRING] = function(value)
-    local maxItem = value:getMaxValue()
-    if not maxItem then
-        return ""
-    end
-
-    return maxItem:getValueName()
+    return value:toString()
 end
 
 -- Cast from glue
 CASTS[GLUE][STRING] = function(_value)
-    return "\0"
+    return "\127"
 end
 
 -- Cast from tag
@@ -194,6 +204,23 @@ function Value:cast(valueType)
     end
 
     return nil
+end
+
+function Value:assign(other)
+    local otherType = Class.getType(other)
+    if self._type == LIST then
+        if Class.isDerived(otherType, List) then
+            self._value = self._value:assign(other)
+        elseif Class.isDerived(otherType, Value) and other._type == LIST then
+            self._value = self._value:assign(other._value)
+        else
+            self:copyFrom(other)
+        end
+    else
+        self:copyFrom(other)
+    end
+
+    return self
 end
 
 function Value:copy(other)

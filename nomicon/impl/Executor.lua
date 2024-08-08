@@ -1,5 +1,6 @@
 local PATH = (...):gsub("[^%.]+$", "")
 local Choice = require(PATH .. "Choice")
+--- @module "nomicon.impl.Constants"
 local Constants = require(PATH .. "Constants")
 local Container = require(PATH .. "Container")
 local Class = require(PATH .. "Class")
@@ -7,6 +8,7 @@ local Flow = require(PATH .. "Flow")
 local GlobalVariables = require(PATH .. "GlobalVariables")
 local ListDefinitions = require(PATH .. "ListDefinitions")
 local InstructionBuilder = require(PATH .. "InstructionBuilder")
+local Utility = require(PATH .. "Utility")
 local Value = require(PATH .. "Value")
 
 --- @class Nomicon.Impl.Executor
@@ -24,11 +26,12 @@ function Executor:new(globalVariables)
     self._choices = {}
 
     self._flows = {}
+    self._flowNames = {}
     self._defaultFlow = Flow(self, "default")
     self._currentFlow = self._defaultFlow
 
     self._externalFuncs = {}
-    self._isCallingExternalFunction = false
+    self._isCallingExternalFunction = {}
 
     self._globalVariables = GlobalVariables(globalVariables)
 
@@ -49,7 +52,7 @@ function Executor:new(globalVariables)
             return seed
         end
 
-        self._random = function(min, max)
+        self._randomFunc = function(min, max)
             return rng:random(min, max)
         end
     else
@@ -58,6 +61,77 @@ function Executor:new(globalVariables)
         self._getSeedFunc = function() return 0 end
         self._randomFunc = function(min, _max) return min end
     end
+    
+    self._isLocked = false
+end
+
+function Executor:resetCounts()
+    Utility.clearTable(self._visitCounts)
+    Utility.clearTable(self._turnCounts)
+end
+
+function Executor:newFlow(name)
+    if name == "default" then
+        return false
+    end
+
+    if self._flows[name] then
+        return false
+    end
+
+    self._flows[name] = Flow(self, name)
+    table.insert(self._flowNames, name)
+
+    return true
+end
+
+function Executor:deleteFlow(name)
+    if not name then
+        return false
+    end
+
+    local flow = self._flows[name]
+    if not flow then
+        return false
+    end
+
+    self._isCallingExternalFunction[flow] = nil
+
+    for index, name in ipairs(self._flowNames) do
+        if name == name then
+            table.remove(self._flowNames, index)
+        end
+    end
+    
+    if self._currentFlow == flow then
+        self._currentFlow = self._defaultFlow
+    end
+    
+    self._flows[name] = nil
+    return true
+end
+    
+function Executor:switchFlow(name)
+    if not name or name == "default" then
+        self._currentFlow = self._defaultFlow
+        return true
+    end
+
+    local flow = self._flows[name]
+    if not flow then
+        return false
+    end
+
+    self._currentFlow = flow
+    return true
+end
+
+function Executor:hasFlow(name)
+    return self._flows[name] ~= nil or name == "default"
+end
+
+function Executor:flows()
+    return ipairs(self._flowNames)
 end
 
 function Executor:clean()
@@ -122,6 +196,14 @@ function Executor:getPreviousPointer()
     return self._currentFlow:getCurrentThread():getPreviousPointer()
 end
 
+function Executor:pushGlobalVariables()
+    self._globalVariables = GlobalVariables(self._globalVariables)
+end
+
+function Executor:popGlobalVariables()
+    self._globalVariables = self._globalVariables:getParent()
+end
+
 function Executor:getGlobalVariables()
     return self._globalVariables
 end
@@ -130,15 +212,15 @@ function Executor:getGlobalVariable(key)
     return self._globalVariables:get(key)
 end
 
-function Executor:setGlobalVariable(key, value)
-    if self._isCallingExternalFunction then
+function Executor:setGlobalVariable(key, value, fireListeners)
+    if self._isCallingExternalFunction[self._currentFlow] then
         self._globalVariables:set(key, value, false)
         return
     end
 
-    self._isCallingExternalFunction = true
-    local success, result = pcall(self._globalVariables.set, self._globalVariables, key, value, true)
-    self._isCallingExternalFunction = false
+    self._isCallingExternalFunction[self._currentFlow] = true
+    local success, result = pcall(self._globalVariables.set, self._globalVariables, key, value, fireListeners == nil and true or fireListeners)
+    self._isCallingExternalFunction[self._currentFlow] = false
 
     if not success then
         error(string.format("error setting global variable '%s': %s", key, result))
@@ -150,8 +232,10 @@ function Executor:_getTemporaryVariables(contextIndex)
 
     if contextIndex then
         if contextIndex < 0 then
-            error("context index not yet determined")
-        elseif contextIndex == 0 then
+            contextIndex = callStack:getFrameCount() + contextIndex + 1
+        end
+
+        if contextIndex == 0 then
             error("context index is global")
         elseif contextIndex > callStack:getFrameCount() then
             error("context index it out of bounds")
@@ -160,6 +244,17 @@ function Executor:_getTemporaryVariables(contextIndex)
 
     local callStackFrame = callStack:getFrame(contextIndex or -1)
     return callStackFrame:getTemporaryVariables()
+end
+
+function Executor:getTemporaryVariableContextIndex(key)
+    local callStack = self._currentFlow:getCurrentThread():getCallStack()
+    for i = callStack:getFrameCount(), 1, -1 do
+        if callStack:getFrame(i):getTemporaryVariables():has(key) then
+            return i
+        end
+    end
+
+    return -1
 end
 
 function Executor:getTemporaryVariable(key, contextIndex)
@@ -175,13 +270,13 @@ function Executor:visit(container, isStart)
         return
     end
 
-    local pathName = container:getPath():toString()
+    local name = container:getNiceName() or container:getPath():toString()
     if container:getShouldCountTurns() then
-        self._turnCounts[pathName] = self:getTurnCount()
+        self._turnCounts[name] = self:getTurnCount()
     end
 
     if container:getShouldCountVisits() then
-        self._visitCounts[pathName] = (self._visitCounts[pathName] or 0) + 1
+        self._visitCounts[name] = (self._visitCounts[name] or 0) + 1
     end
 end
 
@@ -192,7 +287,7 @@ function Executor:getTurnCountForContainer(container)
 
     local pathName = container:getPath():toString()
     local turnCount = self._turnCounts[pathName]
-    return turnCount and turnCount - self._currentTurnCount or -1
+    return turnCount and (self._currentTurnCount - turnCount) or -1
 end
 
 function Executor:getVisitCountForContainer(container)
@@ -200,7 +295,7 @@ function Executor:getVisitCountForContainer(container)
         return -1
     end
 
-    local pathName = container:getPath():toString()
+    local pathName = container:getNiceName() or container:getPath():toString()
     return self._visitCounts[pathName] or 0
 end
 
@@ -237,11 +332,11 @@ function Executor:stopStringEvaluation()
 end
 
 function Executor:enterTag()
-    return self._currentFlow:getCurrentThread():enterTag()
+    return self._currentFlow:enterTag()
 end
 
 function Executor:leaveTag()
-    self._currentFlow:getCurrentThread():leaveTag()
+    self._currentFlow:leaveTag()
 end
 
 function Executor:getTurnCount()
@@ -254,7 +349,10 @@ end
 
 function Executor:startThread()
     self._currentFlow:push()
-    self:_advancePointer(self._currentFlow:getThread(-2))
+
+    local previousThread = self._currentFlow:getThread(-2)
+    previousThread:updatePreviousPointer()
+    self:_advancePointer(previousThread)
 end
 
 function Executor:done()
@@ -277,6 +375,29 @@ function Executor:getChoiceCount()
     return self._currentFlow:getChoiceCount()
 end
 
+function Executor:getSelectableChoiceCount()
+    local count = 0
+    for i = 1, self:getChoiceCount() do
+        local choice = self:getChoice(i)
+        if choice:getIsSelectable() and choice:getChoicePoint() and not choice:getChoicePoint():getIsInvisibleDefault() then
+            count = count + 1
+        end
+    end
+
+    return count
+end
+
+function Executor:getDefaultChoice()
+    for i = 1, self:getChoiceCount() do
+        local choice = self:getChoice(i)
+        if choice:getIsSelectable() and choice:getChoicePoint() and choice:getChoicePoint():getIsInvisibleDefault() then
+            return choice
+        end
+    end
+
+    return nil
+end
+
 function Executor:getChoice(index)
     return self._currentFlow:getChoice(index)
 end
@@ -285,7 +406,7 @@ function Executor:clearChoices()
     self._currentFlow:clearChoices()
 end
 
-function Executor:_choosePath(path)
+function Executor:_choosePath(path, ...)
     local container, index = self:getPointer(path)
     if not container or not index then
         return false
@@ -295,7 +416,7 @@ function Executor:_choosePath(path)
     if callStack:getFrameCount() == 0 then
         callStack:enter(Constants.DIVERT_START, container, index)
     else
-        self:divertToPointer(Constants.DIVERT_TO_PATH, container, index)
+        self:divertToPointer(Constants.DIVERT_TO_PATH, container, index, ...)
     end
 
     self:clearChoices()
@@ -332,8 +453,36 @@ function Executor:_chooseChoice(choice)
     return true
 end
 
-function Executor:divertToPointer(divertType, container, index)
-    self._currentFlow:getCurrentThread():divertToPointer(divertType, container, index)
+function Executor:divertToPointer(divertType, container, index, ...)
+    self._currentFlow:getCurrentThread():divertToPointer(divertType, container, index, ...)
+end
+
+function Executor:hasExternalFunction(name)
+    return self._externalFuncs[name] ~= nil
+end
+
+function Executor:freeExternalFunction(name)
+    if self:hasExternalFunction(name) then
+        self._externalFuncs[name] = nil
+        return true
+    end
+
+    return false
+end
+
+function Executor:bindExternalFunction(name, func, marshal, ...)
+    if self:hasExternalFunction(name) then
+        return false
+    end
+
+    local externalFunc = {
+        args = { ... },
+        n = select("#", ...),
+        func = func,
+        marshal = marshal == nil and false or marshal
+    }
+
+    self._externalFuncs[name] = externalFunc
 end
 
 function Executor:divertToExternal(name, numArgs)
@@ -344,7 +493,8 @@ function Executor:divertToExternal(name, numArgs)
         if container then
             self:divertToPointer(Constants.DIVERT_TO_FUNCTION, container, 1)
         else
-            error(string.format("could not find external function or knot with name '%s' when trying to call an external function", name))
+            self:getEvaluationStack():pop(numArgs)
+            self:getEvaluationStack():push(nil)
         end
 
         return
@@ -371,9 +521,9 @@ function Executor:divertToExternal(name, numArgs)
         externalFunction.args[externalFunction.n + offset] = value
     end
 
-    self._isCallingExternalFunction = true
+    self._isCallingExternalFunction[self._currentFlow] = true
     local success, result = pcall(externalFunction.func, (table.unpack or unpack)(externalFunction.args, 1, externalFunction.n + numArgs))
-    self._isCallingExternalFunction = false
+    self._isCallingExternalFunction[self._currentFlow] = false
 
     if not success then
         error(string.format("error running external function '%s': %s", name, result))
@@ -390,8 +540,8 @@ function Executor:start(path)
     self._currentFlow:getCurrentThread():getCallStack():enter(Constants.DIVERT_START, container, 1)
 end
 
-function Executor:call(path, ...)
-    if self._isCallingExternalFunction then
+function Executor:call(path, yield, ...)
+    if self._isCallingExternalFunction[self._currentFlow] then
         error("cannot call function while in external function")
     end
 
@@ -399,37 +549,47 @@ function Executor:call(path, ...)
     self:divertToPointer(Constants.DIVERT_TO_FUNCTION, container, index)
 
     local beforeEvaluationStackCount = self:getEvaluationStack():getCount()
-    self:continue()
+    for i = 1, select("#", ...) do
+        local arg = select(i, ...)
+        self:getEvaluationStack():push(arg)
+    end
+
+    local text = self:continue(yield)
+
     local afterEvaluationStackCount = self:getEvaluationStack():getCount()
 
+    local tags = {}
+    for i = 1, self._currentFlow:getTagCount() do
+        table.insert(tags, self._currentFlow:getTag(i))
+    end
+
     local numReturnValues = afterEvaluationStackCount - beforeEvaluationStackCount
-    return self:getEvaluationStack():pop(numReturnValues)
+    return text, tags, self:getEvaluationStack():pop(numReturnValues)
 end
 
-function Executor:choose(value)
+function Executor:choose(value, ...)
     if Class.isDerived(Class.getType(value), Choice) then
         return self:_chooseChoice(value)
     end
 
     self._currentFlow:getCurrentThread():getCallStack():clear()
-    return self:_choosePath(value)
+    return self:_choosePath(value, ...)
 end
 
-function Executor:_divert()
-    local thread = self._currentFlow:getCurrentThread()
-    local divertType = thread:getDivertedPointerType()
-    local container, index = thread:getDivertedPointer()
-
-    if divertType == Constants.DIVERT_TO_FUNCTION or divertType == Constants.DIVERT_TO_TUNNEL then
-        thread:getCallStack():enter(divertType, container, index)
-    else
-        thread:getCallStack():jump(container, index)
-    end
-
-    thread:clearDivertedPointer()
+function Executor:_updateVisits(thread)
+    thread = thread or self._currentFlow:getCurrentThread()
 
     local previousContainer, previousIndex = thread:getPreviousPointer()
     local currentContainer, currentIndex = thread:getCurrentPointer()
+
+    if previousContainer and currentContainer then
+        local previousChild = previousContainer:getContent(previousIndex)
+        local currentChild = currentContainer:getContent(currentIndex)
+
+        if previousChild ~= currentChild and Class.isDerived(Class.getType(currentChild), Container) then
+            self:visit(currentChild, true)
+        end
+    end
 
     local index
     if not previousContainer then
@@ -438,18 +598,9 @@ function Executor:_divert()
         local parent = currentContainer:getPath():getCommonParent(previousContainer:getPath())
         local _, parentIndex = currentContainer:getPath():contains(parent)
 
-        index = parentIndex
+        index = parentIndex + 1
     else
         return
-    end
-
-    if previousContainer and currentContainer then
-        local previousChild = previousContainer:getContent(previousIndex)
-        local currentChild = currentContainer:getContent(currentIndex)
-
-        if previousChild ~= currentChild and Class.isDerived(Class.getType(currentChild), Container) then
-            self:visit(currentChild, currentIndex == 1)
-        end
     end
 
     local path = currentContainer:getPath()
@@ -460,6 +611,8 @@ function Executor:_divert()
         local isStart
         if i == path:getComponentCount() and type(name) == "string" then
             isStart = true
+        elseif child == currentContainer then
+            isStart = currentIndex == 1
         else
             isStart = name == 1
         end
@@ -468,18 +621,38 @@ function Executor:_divert()
     end
 end
 
+function Executor:_divert(thread)
+    thread = thread or self._currentFlow:getCurrentThread()
+
+    local divertType = thread:getDivertedPointerType()
+    local container, index = thread:getDivertedPointer()
+
+    if divertType == Constants.DIVERT_TO_FUNCTION or divertType == Constants.DIVERT_TO_TUNNEL then
+        thread:getCallStack():enter(divertType, container, index)
+    else
+        thread:getCallStack():jump(container, index)
+    end
+
+    local arguments, count = thread:getDivertedArguments()
+    for i = 1, count do
+        self:getEvaluationStack():push(arguments[i])
+    end
+
+    thread:clearDivertedPointer()
+    self:_updateVisits(thread)
+end
+
 function Executor:_advancePointer(thread)
     thread = thread or self._currentFlow:getCurrentThread()
-    thread:updatePreviousPointer()
-    
+
     if thread:hasDivertedPointer() then
-        self:_divert()
+        self:_divert(thread)
         return true
     end
 
     local container, index = thread:getCurrentPointer()
     if not (container and index) then
-        return
+        return false
     end
 
     index = index + 1
@@ -497,6 +670,20 @@ function Executor:_advancePointer(thread)
     end
 
     thread:getCallStack():jump(container, index)
+    if not (container and index) and self:getSelectableChoiceCount() == 0 and not self:getDefaultChoice() then
+        local callStack = thread:getCallStack()
+        local frame = callStack:getFrameCount() > 1 and callStack:getFrame()
+        if frame and (frame:canLeave(Constants.DIVERT_TO_FUNCTION) or frame:canLeave(Constants.DIVERT_TO_TUNNEL)) then
+            if frame:getType() == Constants.DIVERT_TO_FUNCTION then
+                self._currentFlow:trimWhitespace(1)
+            end
+
+            thread:getCallStack():leave(frame:getType())
+            self:getEvaluationStack():push(Value.VOID)
+        end
+    end
+
+    self:_updateVisits(thread)
     return container and index
 end
 
@@ -505,25 +692,34 @@ function Executor:_execute()
     if not (container and index) then
         return
     end
-    
+
     local instruction = container:getContent(index)
     if instruction then
         instruction:call(self)
     end
 end
 
-function Executor:step()
-    self:_execute()
+function Executor:_advance()
+    self._currentFlow:getCurrentThread():updatePreviousPointer()
 
-    local didAdvance = self:_advancePointer()
-    while not self._currentFlow:getCurrentThread():getCurrentPointer() and self._currentFlow:canPop() do
-        self._currentFlow:pop()
-        didAdvance = didAdvance or self:_advancePointer()
-    end
+    local didAdvance
+    repeat
+        didAdvance = self:_advancePointer()
+    until didAdvance or not self._currentFlow:getCurrentThread():getCurrentPointer()
 
     if not didAdvance then
         self:_tryDefaultChoice()
     end
+
+    while not self._currentFlow:getCurrentThread():getCurrentPointer() and self._currentFlow:canPop() do
+        self._currentFlow:pop()
+        didAdvance = didAdvance or self:_advancePointer()
+    end
+end
+
+function Executor:step()
+    self:_execute()
+    self:_advance()
 end
 
 function Executor:_tryDefaultChoice()
@@ -531,63 +727,62 @@ function Executor:_tryDefaultChoice()
         return
     end
 
-    local invisibleChoices = 0
-    local visibleChoices = 0
-    local firstInvisibleChoice
-    for i = 1, self:getChoiceCount() do
-        local choice = self:getChoice(i)
-        if choice:getIsSelectable() then
-            if choice:getChoicePoint():getIsInvisibleDefault() then
-                firstInvisibleChoice = firstInvisibleChoice or choice
-                invisibleChoices = invisibleChoices + 1
-            else
-                visibleChoices = visibleChoices + 1
-            end
-        end
-    end
+    local visibleChoices = self:getSelectableChoiceCount()
+    local defaultChoice = self:getDefaultChoice()
 
-    if visibleChoices == 0 and invisibleChoices >= 1 and firstInvisibleChoice then
-        self:_chooseChoice(firstInvisibleChoice)
+    if visibleChoices == 0 and defaultChoice then
+        self:_chooseChoice(defaultChoice)
     end
 end
 
-function Executor:canContinue()
+function Executor:_shouldContinue()
     return self._currentFlow:getCurrentThread():getCurrentPointer() ~= nil
 end
 
-function Executor:_shouldStop()
-    local stack = self._currentFlow:getOutputStack()
-
-    if stack:getCount() == 0 then
-        return false
-    end
-
-    if stack:isWhitespace() then
-        return false
-    end
-
-    local top = stack:peek()
-    return top and top:is(Constants.TYPE_STRING) and top:getValue():find("\n$")
+function Executor:canContinue()
+    return self._currentFlow:getCurrentThread():getCurrentPointer() ~= nil or self._currentFlow:getOutputStack():getCount() >= 1
 end
 
+function Executor:_continue(yield)
 
-function Executor:continue()
-    if not self:canContinue() then
-        error("cannot continue executor; not in valid state")
-    end
-
-    self._currentFlow:getOutputStack():clear()
-
-    while self:canContinue() do
+    while self:_shouldContinue() do
         self:step()
 
-        if self:_shouldStop() then
+        if not self._currentFlow:shouldContinue() then
             break
+        end
+
+        if yield then
+            coroutine.yield()
         end
     end
 
     self._currentFlow:continue()
     return self._currentFlow:getText()
+end
+
+function Executor:continue(yield)
+    if not self:canContinue() then
+        error("cannot continue executor; not in valid state")
+    end
+
+    if self._isLocked then
+        error("executor is locked; cannot continue")
+    end
+
+    self._isLocked = not not yield
+    local success, result = Utility.xpcall(self._continue, self, yield)
+    self._isLocked = false
+
+    if not success then
+        error(result, 0)
+    end
+
+    return result
+end
+
+function Executor:getIsLocked()
+    return self._isLocked
 end
 
 function Executor:getTagCount()

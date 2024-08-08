@@ -7,6 +7,7 @@ local CallStackFrame = Class()
 function CallStackFrame:new(callStack)
     self._callStack = callStack
     self._logicalEvaluationDepth = 0
+    self._outputStackPointer = 0
 
     if callStack:hasFrames() then
         self._temporaryVariables = TemporaryVariables(callStack:getFrame()._temporaryVariables)
@@ -29,6 +30,10 @@ function CallStackFrame:leaveLogicalEvaluation()
     end
 
     self._logicalEvaluationDepth = self._logicalEvaluationDepth - 1
+end
+
+function CallStackFrame:getOutputStackPointer()
+    return self._outputStackPointer
 end
 
 function CallStackFrame:reset()
@@ -59,6 +64,8 @@ function CallStackFrame:enter(divertType, container, index)
     self._type = divertType
     self._container = container
     self._index = index
+
+    self._outputStackPointer = self._callStack:getExecutor():getCurrentFlow():getOutputStack():getCount()
 end
 
 function CallStackFrame:jump(container, index)
@@ -90,6 +97,7 @@ function CallStackFrame:copy(other)
     other = other or CallStackFrame(self._callStack)
 
     other._logicalEvaluationDepth = self._logicalEvaluationDepth
+    other._outputStackPointer = self._outputStackPointer
     other._type = self._type
     other._container = self._container
     other._index = self._index

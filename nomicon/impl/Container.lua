@@ -16,6 +16,7 @@ function Container:new(parent, name, object, instructionBuilder)
     self._content = {}
     self._namedContent = {}
 
+    self:_updateNiceName()
     self:_parse(instructionBuilder)
 end
 
@@ -72,6 +73,12 @@ function Container:getName()
     return self._name
 end
 
+--- Gets the name used when counting turns or visits (read count).
+--- @return string|nil niceName the nice name, if valid; nil otherwise
+function Container:getNiceName()
+    return self._niceName or nil
+end
+
 function Container:getObject()
     return self._object
 end
@@ -126,6 +133,28 @@ function Container:_addNamedContent(name, container)
     end
 
     self._namedContent[name] = container
+end
+
+function Container:_updateNiceName()
+    local niceName
+    if self:getShouldCountTurns() or self:getShouldCountVisits() then
+        local object = self._object
+        local objectName = object and type(object[#object]) == "table" and object[#object][Constants.FIELD_CONTAINER_NAME]
+        if objectName then
+            local current = self
+            while current and current:getParent() and type(current:getName()) ~= "string" do
+                current = current:getParent()
+            end
+
+            if not current:getParent() then
+                niceName = objectName
+            else
+                niceName = string.format("%s.%s", current:getName(), objectName)
+            end
+        end
+    end
+
+    self._niceName = niceName or false
 end
 
 function Container:_parseNamedContent(instruction, instructionBuilder)
@@ -190,7 +219,6 @@ function Container:call(executor)
     end
 
     currentThread:getCallStack():jump(self, 0)
-    executor:visit(self, true)
 end
 
 function Container.isContainer(instruction)

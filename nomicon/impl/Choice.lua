@@ -39,7 +39,7 @@ end
 
 function Choice:setStartText(value)
     self._startText = value or ""
-    self._text = self._startText .. self._endText
+    self._text = Utility.cleanWhitespace(self._startText .. self._endText)
 end
 
 function Choice:getEndText()
@@ -48,7 +48,7 @@ end
 
 function Choice:setEndText(value)
     self._endText = value or ""
-    self._text = self._startText .. self._endText
+    self._text = Utility.cleanWhitespace(self._startText .. self._endText)
 end
 
 function Choice:getText()

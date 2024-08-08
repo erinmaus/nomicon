@@ -1,10 +1,3 @@
-. {print_num(4)} .
-. {print_num(15)} .
-. {print_num(37)} .
-. {print_num(101)} .
-. {print_num(222)} .
-. {print_num(1234)} .
-
 === function print_num(x) ===
 ~ x = FLOOR(x)
 {

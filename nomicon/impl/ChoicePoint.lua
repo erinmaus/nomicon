@@ -2,6 +2,7 @@ local bit = require("bit")
 local PATH = (...):gsub("[^%.]+$", "")
 local Class = require(PATH .. "Class")
 local Constants = require(PATH .. "Constants")
+local Utility = require(PATH .. "Utility")
 
 local ChoicePoint = Class()
 
@@ -52,28 +53,31 @@ function ChoicePoint:call(executor)
     end
 
     local startChoiceText, endChoiceText
+
     local tags = {}
-
-    if self:getHasStartContent() then
-        startChoiceText = stack:pop():cast(Constants.TYPE_STRING) or ""
-
-        while stack:peek() and stack:peek():is(Constants.TYPE_TAG) do
-            local tag = stack:pop():cast(Constants.TYPE_STRING)
-            if tag then
+    do
+        local outputStack = executor:getOutputStack()
+        for i = 1, outputStack:getCount() do
+            local value = outputStack:peek(i)
+            if value:is(Constants.TYPE_TAG) then
+                local tag = Utility.cleanWhitespace(value:cast(Constants.TYPE_STRING))
                 table.insert(tags, tag)
+            else
+                break
             end
+        end
+
+        for _ = 1, #tags do
+            outputStack:remove(1)
         end
     end
 
     if self:getHasEndContent() then
         endChoiceText = stack:pop():cast(Constants.TYPE_STRING) or ""
+    end
 
-        while stack:peek() and stack:peek():is(Constants.TYPE_TAG) do
-            local tag = stack:pop():cast(Constants.TYPE_STRING)
-            if tag then
-                table.insert(tags, tag)
-            end
-        end
+    if self:getHasStartContent() then
+        startChoiceText = stack:pop():cast(Constants.TYPE_STRING) or ""
     end
 
     local targetContainer = executor:getPointer(self._targetContainer)
@@ -84,9 +88,9 @@ function ChoicePoint:call(executor)
     local choice = executor:addChoice(self)
     choice:setStartText(startChoiceText)
     choice:setEndText(endChoiceText)
-    choice:addTags(tags)
     choice:setIsSelectable(isSelectable)
     choice:setTargetContainer(targetContainer)
+    choice:addTags(tags)
 end
 
 function ChoicePoint.isChoicePoint(instruction)

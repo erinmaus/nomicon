@@ -7,16 +7,23 @@ local TemporaryVariables = Class()
 
 local function __index(self, key)
     local metatable = getmetatable(self)
-    return metatable._variables[key] or (metatable._parent and metatable._parent[key])
+    return metatable._variables[key] or (metatable._parent and metatable._parent:get(key))
 end
 
 local function __newindex(self, key, value)
     local metatable = getmetatable(self)
     local variable = metatable._variables[key]
-    if not variable then
-        variable = Value(nil, value)
-    else
-        value:copy(variable)
+    do
+        local parentVariable = metatable._parent and metatable._parent:get(key)
+        if not variable and parentVariable then
+            variable = Value(nil, parentVariable)
+        end
+
+        if variable then
+            variable:assign(value)
+        else
+            variable = Value(nil, value)
+        end
     end
 
     metatable._variables[key] = variable
@@ -39,6 +46,10 @@ end
 
 function TemporaryVariables:reset()
     Utility.clearTable(self._variables)
+end
+
+function TemporaryVariables:has(key)
+    return self._variables[key] ~= nil
 end
 
 function TemporaryVariables:get(key)

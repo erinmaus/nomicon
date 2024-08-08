@@ -1,13 +1,13 @@
 Professor: Are you a GIRL or a BOY?
-Girl!
+Girl.
 Professor: What is your GIRL name?
 Professor: That's a nice name!
 Professor: Are you a GIRL or a BOY?
-Boy!
+Boy.
 Professor: What is your BOY name?
 Professor: That's a nice name!
 Professor: Are you a GIRL or a BOY?
-NEITHER!
+NEITHER.
 Professor: Cool! What is your NON-BINARY name?
 Professor: That's a nice name!
 Professor: Are you a GIRL or a BOY?

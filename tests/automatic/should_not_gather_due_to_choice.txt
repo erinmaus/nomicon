@@ -1,2 +1,2 @@
-opt\n
-text\n
+opt
+text

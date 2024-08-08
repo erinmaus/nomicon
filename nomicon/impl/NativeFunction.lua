@@ -245,7 +245,7 @@ local PERFORM = {
             local b = rightValue:cast(coercedType)
 
             if a ~= nil and b ~= nil then
-                return a <= b
+                return a >= b
             end
         end
 
@@ -279,7 +279,7 @@ local PERFORM = {
                 return a:getCount() == 0
             end
 
-            return not a
+            return a == 0
         end
 
         return nil
@@ -411,10 +411,10 @@ local PERFORM = {
             end
         elseif coercedType == STRING then
             local a = leftValue:cast(STRING)
-            local b = leftValue:cast(STRING)
+            local b = rightValue:cast(STRING)
 
             if a ~= nil and b ~= nil then
-                return a:find(b, 1, true)
+                return a:find(b, 1, true) ~= nil
             end
         end
     end,
@@ -429,10 +429,10 @@ local PERFORM = {
             end
         elseif coercedType == STRING then
             local a = leftValue:cast(STRING)
-            local b = leftValue:cast(STRING)
+            local b = rightValue:cast(STRING)
 
             if a ~= nil and b ~= nil then
-                return not a:find(b, 1, true)
+                return not a:find(b, 1, true) == nil
             end
         end
     end,
@@ -443,7 +443,7 @@ local PERFORM = {
             local b = rightValue:cast(LIST)
 
             if a ~= nil and b ~= nil then
-                return not a:intersect(b)
+                return a:intersect(b)
             end
         end
 
@@ -510,7 +510,7 @@ local PERFORM = {
             local a = value:cast(LIST)
             if a ~= nil then
                 local max = a:getMaxValue()
-                return max and max.value
+                return max and max:getValue()
             end
         end
 
@@ -574,7 +574,7 @@ function NativeFunction:_getCoercedType(stack, numParameters)
         assert(valueType ~= GLUE, "somehow got glue")
 
         if valueType == VOID then
-            error("got 'void' value! function without return value?")
+            valueType = BOOLEAN
         end
 
         local priority = TYPE_PRIORITY[valueType]

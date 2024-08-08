@@ -3,6 +3,7 @@ local Class = require(PATH .. "Class")
 local ListValue = require(PATH .. "ListValue")
 local List = require(PATH .. "List")
 
+--- @class Nomicon.Impl.ListDefinitions
 local ListDefinitions = Class()
 
 function ListDefinitions:new(origins)
@@ -18,11 +19,11 @@ function ListDefinitions:new(origins)
             result.valuesByName[valueName] = v
 
             if result.valuesByValue[value] then
-                local o = result.valuesByValue[value]
-                error(string.format("list '%s' has duplicate values: '%s' (%d) and '%s' (%d).", listName, v:getValueName(), v:getValue(), o:getValueName(), o:getValue()))
+                table.insert(result.valuesByValue[value], v)
             else
-                result.valuesByValue[value] = v
+                result.valuesByValue[value] = { v }
             end
+            table.insert(result.values, v)
 
             if self._values[valueName] then
                 table.insert(self._values[valueName], v)
@@ -65,9 +66,9 @@ function ListDefinitions:newList(...)
     local values = {}
     for i = 1, select("#", ...) do
         local value = select(i, ...)
-        if not Class.isDerived(Class.getType(value), ListValue) then
+        if value and not Class.isDerived(Class.getType(value), ListValue) then
             error(string.format("expected list value, got '%s'", Class.getType(value) and value:getDebugInfo().shortName))
-        elseif not self._origins[value:getListName()] or not self._origins[value:getListName()].valuesByName[value:getListName()] then
+        elseif value and (not self._origins[value:getListName()] or not self._origins[value:getListName()].valuesByName[value:getListName()]) then
             local origin = self._origins[value:getListName()]
             local v = origin and origin.valuesByName[value:getValueName()]
 
@@ -129,7 +130,7 @@ function ListDefinitions:newListFromValues(listName, ...)
 
         local v
         if type(value) == "number" then
-            v = origin.valuesByValue[value]
+            v = unpack(origin.valuesByValue[value])
             if not v then
                 error(string.format("list '%s' does not have a list value of '%d'", value))
             end
@@ -158,7 +159,16 @@ function ListDefinitions:newListFromObject(object)
         table.insert(values, value)
     end
 
-    return List(self, values)
+    local lists 
+    if object.origins then
+        lists = {}
+        for _, origin in ipairs(object.origins) do
+            table.insert(lists, origin)
+            lists[origin] = #lists
+        end
+    end
+
+    return List(self, values, lists)
 end
 
 function ListDefinitions:tryGetListValues(name)
@@ -189,13 +199,13 @@ function ListDefinitions:getListValues(name)
         end
     end
 
-    return self:tryGetList(name)
+    return self:tryGetValue(name)
 end
 
 function ListDefinitions:tryGetValue(a, b)
     if a ~= nil then
         if a:find("%.") or b == nil then
-            local values = self._values[a] or self._values[a:match("[^.]*%.(%w+)")]
+            local values = self._values[a] or self._values[a:match("[^.]*%.([^.]*)")]
             if values then
                 -- We can't short circuit because it will collapse the unpack into a single value
                 -- So no `return values and unpack(values)`...
@@ -206,7 +216,11 @@ function ListDefinitions:tryGetValue(a, b)
         elseif b ~=  nil then
             local origin = self._origins[a]
             if origin then
-                return origin.valuesByName[b]
+                if origin.valuesByName[b] then
+                    return origin.valuesByName[b]
+                elseif origin.valuesByValue[b] then
+                    return (table.unpack or unpack)(origin.valuesByValue[b])
+                end
             end
         end
     end
@@ -251,9 +265,9 @@ function ListDefinitions:getValue(a, b)
         error(string.format("list '%s' not found", origin))
     end
 
-    local value = origin.valuesByName[b]
+    local value = origin.valuesByName[b] or origin.valuesByValue[b]
     if not value then
-        error(string.format("list '%s' does not have list value with name '%s'", a, b))
+        error(string.format("list '%s' does not have list value with name or value '%s'", a, tostring(b)))
     end
 
     return value
