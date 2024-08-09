@@ -95,6 +95,8 @@ local function runTest(test)
     local before = love.timer.getTime()
     while story:canContinue() and (test.content and j < #test.content) do
         local text = story:continue()
+        lu.assertEquals(text, story:getText())
+
         currentText = currentText .. text
 
         if test.content then
