@@ -1,5 +1,7 @@
-*.json
-ink.zip
+tests/**/*.json
+.vscode/.env
+build/
+*.zip
+*.tar.gz
 ink
-.vscode
 .DS_Store

@@ -1,0 +1,29 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'nomicon-v*.*.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      -
+        name: Build
+        run: |
+          mkdir build
+          zip -r ./build/demo.love ./nomicon ./conf.lua ./main.lua ./tests/lib/json.lua
+          zip -r ./build/$(git describe --tags).zip ./nomicon ./README.md ./LICENSE
+          tar -czvf ./build/$(git describe --tags).tar.gz ./nomicon ./README.md ./LICENSE
+      -
+        name: Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create $(git describe --tags) --draft --notes-from-tag ./build/*
