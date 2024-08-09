@@ -372,6 +372,12 @@ function Story:getGlobalTag(index)
     return self._globalTags[index]
 end
 
+--- Gets the text from the last call to continue or an empty string if there is no text.
+--- @return string
+function Story:getText()
+    return self._executor:getText()
+end
+
 --- Gets the tags for the knot or container at the provided path.
 --- @param path string the path to the knot or container
 function Story:getTags(path)

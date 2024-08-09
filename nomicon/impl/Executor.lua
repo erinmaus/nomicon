@@ -785,6 +785,10 @@ function Executor:getIsLocked()
     return self._isLocked
 end
 
+function Executor:getText()
+    return self._currentFlow:getText()
+end
+
 function Executor:getTagCount()
     return self._currentFlow:getTagCount()
 end
