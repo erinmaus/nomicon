@@ -2,7 +2,7 @@ local PATH = (...) .. "."
 
 --- @class Nomicon
 local Nomicon = {
-	_VERSION = "1.0.0",
+	_VERSION = "1.0.1",
 	_DESCRIPTION = "Runs Ink JSON.",
 	_LICENSE = [[
 		Mozilla Public License Version 2.0
