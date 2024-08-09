@@ -74,9 +74,11 @@ See the API documentation in the source or README for more info.
 * `Nomicon.Story:canContinue()`: Returns true if the story can continue; false otherwise.
 
 * `Nomicon.Story:continue(yield = false)`: Continues the story. Returns the current line of text and the tags associated with the that line of text. If `yield` is true, then the story will yield nothing after each "step" (execution cycle: get next instruction, advance pointer, check if done). Until this method returns, any mutations on `Nomicon.Story` are not allowed. This includes, but is not necessarily limited to:
-  * Setting a global variable or listening for a global variable
-  * Binding an external function
-  * 
+  * Setting a global variable or listening for a global variable.
+  * Binding an external function or freeing an external function.
+  * Create a new flow, switching the current flow, or freeing a flow.
+  * Making a choice or choosing a new path.
+  * Calling a function.
 
 * `Nomicon.Story:hasChoices()`: Returns true if there is at least one choice available, false otherwise. This includes **unselectable** choices. If you only want to manage visible and selectable choices, see `Nomicon.ChoiceList`.
 
