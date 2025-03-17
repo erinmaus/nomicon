@@ -54,30 +54,30 @@ function ChoicePoint:call(executor)
 
     local startChoiceText, endChoiceText
 
-    local tags = {}
-    do
-        local outputStack = executor:getOutputStack()
-        for i = 1, outputStack:getCount() do
-            local value = outputStack:peek(i)
-            if value:is(Constants.TYPE_TAG) then
-                local tag = Utility.cleanWhitespace(value:cast(Constants.TYPE_STRING))
-                table.insert(tags, tag)
-            else
-                break
-            end
-        end
-
-        for _ = 1, #tags do
-            outputStack:remove(1)
-        end
-    end
-
     if self:getHasEndContent() then
         endChoiceText = stack:pop():cast(Constants.TYPE_STRING) or ""
     end
 
     if self:getHasStartContent() then
         startChoiceText = stack:pop():cast(Constants.TYPE_STRING) or ""
+    end
+
+    local tags = {}
+    do
+        local outputStack = executor:getOutputStack()
+        for i = outputStack:getCount(), 1, -1 do
+            local value = outputStack:peek(i)
+            if value:is(Constants.TYPE_TAG) then
+                local tag = Utility.cleanWhitespace(value:cast(Constants.TYPE_STRING))
+                table.insert(tags, 1, tag)
+            else
+                break
+            end
+        end
+
+        if #tags > 0 then
+            outputStack:pop(#tags)
+        end
     end
 
     local targetContainer = executor:getPointer(self._targetContainer)
