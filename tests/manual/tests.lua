@@ -19,6 +19,14 @@ local function test(description, func)
     })
 end
 
+test("itsyrealm tags bug", function()
+    local story = loadStory("test_itsyrealm_tags")
+
+    lu.assertEquals(story:continue(), "WREN! TALK TO ME!\n")
+    lu.assertEquals(story:getTagCount(), 1)
+    lu.assertEquals(story:getTag(1), "speaker=Orlando")
+end)
+
 test("should test default global variables", function()
     local story = loadStory("should_test_default_global_variables", { to_be_overwritten = "I'm a human bean!" })
     lu.assertEquals(story:continue(), "I'm a human bean!\n")
