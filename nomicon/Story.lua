@@ -204,7 +204,7 @@ end
 --- @param value Nomicon.Value the value of the variable
 function Story:setGlobalVariable(variableName, value)
     self:_checkLock()
-    self._executor:setGlobalVariable(variableName, Value(nil, value), value)
+    self._executor:setGlobalVariable(variableName, Value(nil, value), false)
 end
 
 --- @alias Nomicon.GlobalVariableListener fun(args...: any, key: string, value: Nomicon.Value, previousValue: Nomicon.Value): any | fun(args...: any, value: Nomicon.Value, previousValue: Nomicon.Value): any
