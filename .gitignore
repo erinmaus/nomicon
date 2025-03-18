@@ -3,5 +3,6 @@ tests/**/*.json
 build/
 *.zip
 *.tar.gz
+*.love
 ink
 .DS_Store
