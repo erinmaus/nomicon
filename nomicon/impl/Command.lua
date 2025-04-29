@@ -199,7 +199,7 @@ local COMMANDS = {
                 newRandomSeed = newRandomSeed + path:byte(i, i)
             end
 
-            executor:setRandomSeed(loopIndex + newRandomSeed)
+            executor:setRandomSeed(currentRandomSeed + loopIndex + newRandomSeed)
         end
 
         local values = {}

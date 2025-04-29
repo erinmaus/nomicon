@@ -78,6 +78,7 @@ end
 
 local function runTest(test)
     local story = Nomicon.Story(test.book)
+    story:setRandomSeed(0)
     lu.assertEquals(story:canContinue(), true)
 
     local maxTime = love.timer.getTime() + 1

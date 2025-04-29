@@ -36,19 +36,14 @@ function Executor:new(globalVariables)
     self._globalVariables = GlobalVariables(globalVariables)
 
     if love and love.math then
-        local rng = love.math.newRandomGenerator()
-        local seed = {}
+        local rng = love.math.newRandomGenerator(tonumber("CBBF7A44", 16), 0)
 
         self._setSeedFunc = function(seed)
-            if type(seed) == "table" and #seed == 2 then
-                rng:setSeed((table.unpack or unpack)(seed))
-            else
-                rng:setSeed(seed)
-            end
+            rng:setSeed(seed, 0)
         end
 
         self._getSeedFunc = function()
-            seed[1], seed[2] = rng:getSeed()
+            local seed = rng:getSeed()
             return seed
         end
 
@@ -493,7 +488,10 @@ function Executor:divertToExternal(name, numArgs)
         if container then
             self:divertToPointer(Constants.DIVERT_TO_FUNCTION, container, 1)
         else
-            self:getEvaluationStack():pop(numArgs)
+            if numArgs > 0 then
+                self:getEvaluationStack():pop(numArgs)
+            end
+
             self:getEvaluationStack():push(nil)
         end
 
